@@ -196,6 +196,8 @@ end
 function [profit_loss, trade_duration_short] = exitShort(now)
 
 
+    
+    
 
 end
 
@@ -203,6 +205,8 @@ end
 function [profit_loss, trade_duration_long] = exitLong(now)
 
 
+    
+    
 
 end
 
