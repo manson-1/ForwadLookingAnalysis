@@ -1,4 +1,4 @@
-function [supertrend] = mySuperTrend(Instrument, periodATR, multiplier, graphics)
+function [supertrend, trend] = mySuperTrend(Instrument, periodATR, multiplier, graphics)
 %% INPUT PARAMETER 
 
 % DEFAULT VALUES
