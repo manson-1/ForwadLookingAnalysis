@@ -85,15 +85,18 @@ else %no input error -> run code
     end
     
 end
+
 end
 
-function [optParam1, optParam2] = runOptimizer_iS(lowerLimit1, upperLimit1, lowerLimit2, upperLimit2, param1, param2)
+function [optParam1, optParam2] = runOptimizer_iS(lowerLimit1, upperLimit1, lowerLimit2, upperLimit2, stepParam1, stepParam2, param1, param2)
 %% INPUT PARAMETER
 
 % lowerLimit1 = lower limit for optimization of parameter 1
 % upperLimit1 = upper limit for optimization of parameter 1
 % lowerLimit2 = lower limit for optimization of parameter 2
 % upperLimit2 = upper limit for optimization of parameter 2
+% stepParam1 = step forward for parameter 1 optimization
+% stepParam2 = step forward for parameter 2 optimization
 % param1 = input parameter 1 for the trading strategy
 % param2 = input parameter 2 for the trading strategy
 
@@ -109,8 +112,8 @@ iS_totalPL = cell(upperLimit1 - lowerLimit1, upperLimit2- lowerLimit2);
 currData = close(currStartDate : currEndDate, 1); %set current data set with date-borders
 
 % cicle through all parameter combinations and create a heatmap
-for ii = lowerLimit1 : upperLimit1 %cicle through each column
-    for jj = lowerLimit2 : upperLimit2 %cicle through each row
+for ii = lowerLimit1 : stepParam1 : upperLimit1 %cicle through each column
+    for jj = lowerLimit2 : stepParam2 : upperLimit2 %cicle through each row
         
         trade_strategy(supertrend, ii, jj, currData); %trade on current data set, pd_ratio, pl, totalPL are returned and saved for each walk
         % save returned values in arrays
@@ -171,43 +174,51 @@ function [pdRatio, pl, totalPL] = trade_strategy(param1, param2, data)
 
 function [entry_time_short, entry_price_short, position_size_short] = enterShort(now)
     
-    if  (running_trade(now-1) ~= +1) % no running short trade          
+    if  (running_trade(now-1) ~= +1) % make sure no running short trade          
             running_trade(now) = -1;
             entry_time_short = now; % save time index of entry signal
             entry_price_short = open(now); % save entry price
-            position_size_short = flaEquity *0.01 % risk 1% of initial account size
+            position_size_short = flaEquity *0.01; % risk 1% of initial account size
             count_short_trades = count_short_trades + 1; %how many short trades   
     end
+    
 end
 
 
-function [entry_time_long, entry_price_long, position_size_long] = enterLong(now)
+function [entry_time_long, entry_price_long, position_size] = enterLong(now)
     
-    if  (running_trade(now-1) ~= -1) % no running long trade          
+    if  (running_trade(now-1) ~= -1) % make sure no running long trade          
             running_trade(now) = 1;
             entry_time_long = now; % save time index of entry signal
             entry_price_long = open(now); % save entry price
-            position_size_long = flaEquity *0.01 % risk 1% of initial account size
+            position_size = flaEquity *0.01; % risk 1% of initial account size
             count_long_trades = count_long_trades + 1; %how many short trades   
     end
+    
 end
 
 
 function [profit_loss, trade_duration_short] = exitShort(now)
 
-
+    if  (running_trade(now-1) == -1) % make sure there is a running short trade        
+            running_trade(now) = 0;
+            trade_duration_short(now) = (now) - (entry_time_short - 1); % calc number of bars of trade duration (for further statistics)
+            profit_loss(now) = (entry_price_short - open(ii)) * position_size; 
+            short_exit = short_exit + 1; % count how many short trades are stopped out
+    end
     
-    
-
 end
 
 
 function [profit_loss, trade_duration_long] = exitLong(now)
 
-
+    if  (running_trade(now-1) == 1) % make sure there is a running short trade        
+            running_trade(now) = 0;
+            trade_duration_long(now) = (now) - (entry_time_long - 1); % calc number of bars of trade duration (for further statistics)
+            profit_loss(now) = (entry_price_long - open(ii)) * position_size; 
+            short_exit = short_exit + 1; % count how many short trades are stopped out
+    end
     
-    
-
 end
 
         
@@ -227,17 +238,17 @@ for kk = param1+1 : length(data) % cicle through all candles of current data
             enterShort(kk);
             
         % current long trade           
-        elseif running_trade(kk-1) == 1 
+        elseif (running_trade(kk-1) == 1)
             enterShort(kk);
             closeLong(kk);
         end
-    end
+            
     
     % LONG CROSSING OCCURS
-    if close(kk-2) < supertrend(kk-2) && close(kk-1) > supertrend(kk-1)
+    elseif close(kk-2) < supertrend(kk-2) && close(kk-1) > supertrend(kk-1)
             
         % no running trade
-        if (running_trade(kk-1) == 0) 
+        if (running_trade(kk-1) == 0)
             enterLong(kk);
             
         % current long trade           
@@ -245,9 +256,17 @@ for kk = param1+1 : length(data) % cicle through all candles of current data
             enterLong(kk);
             closeShort(kk);
         end
-    end
+        
+    elseif (running_trade(kk-1) == -1) % if we have a running short trade set running trade to 1 for each bar until exit 
+        running_trade(kk) = -1;
+        
+    elseif (running_trade(kk-1) == 1) % if we have a running long trade set running trade to 1 for each bar until exit 
+        running_trade(kk) = 1;
+    
+    end    
 end
 
+% =========================================================================
 
 % Variante statt global variables: nested functions -> https://de.mathworks.com/help/matlab/matlab_prog/nested-functions.html
 % müsste nur das end der FLA function ganz ans ende setzen, dann sollten
