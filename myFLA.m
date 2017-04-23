@@ -4,9 +4,9 @@ function [flaEquity] = myFLA(Instrument, totalWindowSize, windowLenght_iS, windo
 % totalWindowSize   = measured from the first data point, how much data
 %                   should be taken into calculation for the consecutive walks.
 %                   FLA stops when end of totalWindowSize is reached
-% windowLenght_iS   = window length of data for in-sample optimization
-% windowLength_ooS  = window length of data for out-of-sample backtest
-% moveInterval      = number of years to shift (per walk)
+% windowLenght_iS   = window length of data for in-sample optimization, measured in trading days, default = 518 
+% windowLength_ooS  = window length of data for out-of-sample backtest measured in trading days, default = 259 
+% moveInterval      = number of trading days to shift (per walk), default = 259
 % if graphics       == 1 plotting is activated
 %--------------------------------------------------------------------------
 
@@ -25,20 +25,20 @@ else %no input error -> run code
     
     global startDate;
     global endDate;
-    global open;
-    global high;
-    global low;
-    global close;
-    global dates;
+%     open;
+%     high;
+%     low;
+%     close;
+%     dates;
     
-    flaPL; % array with all generated PL
+    flaPL(1) = 0; % array with all generated PL
     flaEquity(1) = 100000; % Initial account balance
     
     % global currStartDate;
     % global currEndDate;
     % global priceData;
     
-    %--------------------------------------------------------------------------
+    %----------------------------------------------------------------------
     
     %% DATA PREPARATION
     
@@ -46,27 +46,32 @@ else %no input error -> run code
     [data txt] = xlsread(Instrument);
     
     % assign data - global to be available in all functions
-    open = data(:,1);
-    high = data(:,2);
-    low = data(:,3);
-    close = data(:,4);
-    dates = datetime(txt(2:end,1));
-    %--------------------------------------------------------------------------
+%     open = data(:,1);
+%     high = data(:,2);
+%     low = data(:,3);
+%     close = data(:,4);
+     dates = datetime(txt(2:end,1));
+    %----------------------------------------------------------------------
     
     %% WALK FORWARD
     
-    startDate = dates(1); % first available date in dataset
-    endDate = startDate + totalWindowSize; % endDate = end of totalWindowSize
+    startDate = dates(1) % first available date in dataset
+    endDate = dates(1+totalWindowSize) % endDate = end of totalWindowSize
+    startDateIndex = 1;
+    endDateIndex = 1+totalWindowSize;
     
     %==================== MAJOR CALCULATION ===============================
-    for date = startDate : moveInterval : endDate
+    for date = startDateIndex : moveInterval : endDateIndex
+        
+        data_iS = data(startDateIndex : startDateIndex + windowLenght_iS, :)
+        data_ooS = data(startDateIndex + windowLenght_iS + 1 : startDateIndex + windowLenght_iS + 1 + windowLength_ooS, :);
         
         % run in-sample optimization
-        runOptimizer_iS(1,2,3,4);
+        % runOptimizer_iS(1,2,3,4);
+        runOptimizer_iS(5, 15, 1, 5, 1, 1, data_iS);
         
         % run out-of-sample backtest
-        runBacktest_ooS(1,2);
-        
+        runBacktest_ooS(1, 2, data_ooS);       
         flaPL = vertcat(flaPL, ooS_pl); % merge new ooS_pl into final pl-array
         
     end
@@ -88,7 +93,7 @@ end
 
 end
 
-function [optParam1, optParam2] = runOptimizer_iS(lowerLimit1, upperLimit1, lowerLimit2, upperLimit2, stepParam1, stepParam2, param1, param2)
+function [optParam1, optParam2] = runOptimizer_iS(lowerLimit1, upperLimit1, lowerLimit2, upperLimit2, stepParam1, stepParam2, data)
 %% INPUT PARAMETER
 
 % lowerLimit1 = lower limit for optimization of parameter 1
@@ -100,22 +105,27 @@ function [optParam1, optParam2] = runOptimizer_iS(lowerLimit1, upperLimit1, lowe
 % param1 = input parameter 1 for the trading strategy
 % param2 = input parameter 2 for the trading strategy
 
+open = data(:,1);
+high = data(:,2);
+low = data(:,3);
+close = data(:,4);
+    
 % Set current date borders
-currStartDate = date; % date = input from the for-loop
-currEndDate = date + windowLenght_iS; % window-length = input from the FLA-function call
+% currStartDate = date; % date = input from the for-loop
+% currEndDate = date + windowLenght_iS; % window-length = input from the FLA-function call
 
 % Initialize arrays with dimensions according to input limits
-iS_pdRatio = cell(upperLimit1 - lowerLimit1, upperLimit2- lowerLimit2);
-iS_pl = cell(upperLimit1 - lowerLimit1, upperLimit2- lowerLimit2);
-iS_totalPL = cell(upperLimit1 - lowerLimit1, upperLimit2- lowerLimit2);
+iS_pdRatio = cell(upperLimit1 - lowerLimit1+1, upperLimit2- lowerLimit2+1);
+iS_pl = cell(upperLimit1 - lowerLimit1+1, upperLimit2- lowerLimit2+1);
+iS_totalPL = cell(upperLimit1 - lowerLimit1+1, upperLimit2- lowerLimit2+1);
 
-currData = close(currStartDate : currEndDate, 1); %set current data set with date-borders
+% currData = close(currStartDate : currEndDate, 1); %set current data set with date-borders
 
 % cicle through all parameter combinations and create a heatmap
 for ii = lowerLimit1 : stepParam1 : upperLimit1 %cicle through each column
     for jj = lowerLimit2 : stepParam2 : upperLimit2 %cicle through each row
         
-        trade_strategy(supertrend, ii, jj, currData); %trade on current data set, pd_ratio, pl, totalPL are returned and saved for each walk
+        trade_strategy(supertrend, ii, jj, data); %trade on current data set, pd_ratio, pl, totalPL are returned and saved for each walk
         % save returned values in arrays
         iS_pdRatio(ii,jj) = pdRatio;
         iS_pl(ii,jj) = pl;
@@ -137,11 +147,17 @@ end
 
 end
 
-function [ooS_equity] = runBacktest_ooS(optParam1, optParam2)
+
+function [ooS_equity] = runBacktest_ooS(optParam1, optParam2, data)
 %% INPUT PARAMETER
 
-% optParam1 =
-% optParam2 =
+% optParam1 = in-sample optimized input parameter 1
+% optParam2 = in-sample optimized input parameter 2
+
+open = data(:,1);
+high = data(:,2);
+low = data(:,3);
+close = data(:,4);
 
 % Set current date borders
 currStartDate = date + windowLenght_iS;
@@ -160,6 +176,7 @@ ooS_totalPL = totalPL;
 
 end
 
+
 function [pdRatio, pl, totalPL] = trade_strategy(param1, param2, data)
 %% INPUT PARAMETER
 
@@ -168,7 +185,12 @@ function [pdRatio, pl, totalPL] = trade_strategy(param1, param2, data)
 % data = dataset to trade the strategy
 
 % receive array with supertrend data + trend-direction of data
-[supertrend, trend] = mySuperTrend(Instrument, param1, param2, 0); % call SuperTrend calculation and trading, graphics set to 0 -> no drawing
+[supertrend, trend] = mySuperTrend(data, param1, param2, 0); % call SuperTrend calculation and trading, graphics set to 0 -> no drawing
+
+open = data(:,1);
+high = data(:,2);
+low = data(:,3);
+close = data(:,4);
 
 %% DECLARE TRADING FUNCTIONS
 
@@ -265,8 +287,13 @@ for kk = param1+1 : length(data) % cicle through all candles of current data
     
     end    
 end
+end
 
 % =========================================================================
+
+% DEFAULT INPUT
+% myFLA(Instrument, totalWindowSize, windowLenght_iS, windowLength_ooS, moveInterval, graphics)
+% myFLA('EURUSD', 2000, 518, 259, 259, 0)
 
 % Variante statt global variables: nested functions -> https://de.mathworks.com/help/matlab/matlab_prog/nested-functions.html
 % müsste nur das end der FLA function ganz ans ende setzen, dann sollten

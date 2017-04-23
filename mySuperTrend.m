@@ -1,4 +1,4 @@
-function [supertrend, trend] = mySuperTrend(Instrument, periodATR, multiplier, graphics)
+function [supertrend, trend] = mySuperTrend(data, periodATR, multiplier, graphics)
 %% INPUT PARAMETER 
 
 % DEFAULT VALUES
@@ -21,7 +21,7 @@ else %no input error -> run code
 %% DATA PREPARATION
 
 % read data
-[data txt] = xlsread(Instrument);
+% [data txt] = xlsread(Instrument);
 
 % assign data
 open = data(:,1);
