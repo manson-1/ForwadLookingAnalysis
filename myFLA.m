@@ -25,19 +25,10 @@ else %no input error -> run code
     
     global startDate;
     global endDate;
-    global equity;
-%     open;
-%     high;
-%     low;
-%     close;
-%     dates;
+    global equity;    
     
-    flaPL(1) = 0; % array with all generated PL
-    equity(1) = 100000; % Initial account balance
-    
-    % global currStartDate;
-    % global currEndDate;
-    % global priceData;
+    flaEquity = 0; % array with all generated PL
+    equity(1) = 10000; % Initial account balance
     
     %----------------------------------------------------------------------
     
@@ -65,29 +56,34 @@ else %no input error -> run code
     %==================== MAJOR CALCULATION ===============================
     for date = startDateIndex : moveInterval : endDateIndex
         
-        data_iS = data(startDateIndex : startDateIndex + windowLenght_iS, :);
-        data_ooS = data(startDateIndex + windowLenght_iS + 1 : startDateIndex + windowLenght_iS + 1 + windowLength_ooS, :);
+        data_iS = data(date : date + windowLenght_iS, :);
+        data_ooS = data(date + windowLenght_iS + 1 : date + windowLenght_iS + 1 + windowLength_ooS, :);
         
         % run in-sample optimization
         % runOptimizer_iS(1,2,3,4);
-        runOptimizer_iS(5, 15, 1, 5, 1, 1, data_iS);
+        [optParam1, optParam2] = runOptimizer_iS(5, 15, 1, 5, 1, 1, data_iS);
         
         % run out-of-sample backtest
-        runBacktest_ooS(1, 2, data_ooS);       
-        flaPL = vertcat(flaPL, ooS_pl); % merge new ooS_pl into final pl-array
+        [ooS_pdRatio, ooS_equity] = runBacktest_ooS(optParam1, optParam2, data_ooS);       
+        
+        if flaEquity(1) ~= 0 % only relevant in first walk
+            flaEquity = vertcat(flaEquity, ooS_equity); % merge new ooS_pl into final pl-array
+        else
+            flaEquity = ooS_equity; % only relevant in first walk
+        end
         
     end
     %======================================================================
     
-    % delete all zeros of PL array
-    flaPL(find(flaPL == 0)) = [];
+%     % delete all zeros of PL array
+%     flaPL(find(flaPL == 0)) = [];
+%     
+%     % Calculate ooS EquityCurve from cleaned P&L data
+%     for ii = 2 : length(flaPL)
+%         flaEquity(ii) = flaEquity(ii-1) + flaPL(ii);
+%     end
     
-    % Calculate ooS EquityCurve from cleaned P&L data
-    for ii = 2 : length(flaPL)
-        flaEquity(ii) = flaEquity(ii-1) + flaPL(ii);
-    end
-    
-    if (graphics)
+    if (graphics == 1)
         plot(flaEquity); % flaEquity = each ooS_equity combined
     end
     
@@ -107,79 +103,51 @@ function [optParam1, optParam2] = runOptimizer_iS(lowerLimit1, upperLimit1, lowe
 % param1 = input parameter 1 for the trading strategy
 % param2 = input parameter 2 for the trading strategy
 
-open = data(:,1);
-high = data(:,2);
-low = data(:,3);
-close = data(:,4);
- 
-% Set current date borders
-% currStartDate = date; % date = input from the for-loop
-% currEndDate = date + windowLenght_iS; % window-length = input from the FLA-function call
-
 % Initialize arrays with dimensions according to input limits
-iS_pdRatio = cell(upperLimit1 - lowerLimit1+1, upperLimit2- lowerLimit2+1);
-iS_pl = cell(upperLimit1 - lowerLimit1+1, upperLimit2- lowerLimit2+1);
-iS_totalPL = cell(upperLimit1 - lowerLimit1+1, upperLimit2- lowerLimit2+1);
-
-% currData = close(currStartDate : currEndDate, 1); %set current data set with date-borders
+iS_pdRatio = zeros(upperLimit1, upperLimit2- lowerLimit2+1);
+iS_pdRatio(1:lowerLimit1-1, 1:upperLimit2) = NaN;
 
 % cicle through all parameter combinations and create a heatmap
 for ii = lowerLimit1 : stepParam1 : upperLimit1 %cicle through each column
     for jj = lowerLimit2 : stepParam2 : upperLimit2 %cicle through each row
         
-        trade_strategy(ii, jj, data); %trade on current data set, pd_ratio, pl, totalPL are returned and saved for each walk
-        % save returned values in arrays
+        pdRatio = trade_strategy(ii, jj, data); %trade on current data set, pd_ratio is returned and saved for each walk save returned values in arrays        
         iS_pdRatio(ii,jj) = pdRatio;
-        iS_pl(ii,jj) = pl;
-        iS_totalPL(ii,jj) = totalPL;
         
     end
 end
 
-% create a heatmap of data matrix with returned curr_pdRatio
-pd_heatmap = heatmap(curr_pdRatio,xvar,yvar);
+% detect max value of pdRatio array and save the position indices of it as optParams
+[maximumsTemp, indexTemp] = max(iS_pdRatio);
+[M, I] = max(maximumsTemp);
 
-if (graphics)
-    plot(pd_heatmap); % plot each heatmap
+optParam1 = indexTemp(I);
+optParam2 = I;
+
+% Necessary?
+clear pdRatio;
+clear iS_pdRatio;
+clear profit_loss;
+clear totalPL;
+clear cleanPL;
+clear cleanEquity;
+
 end
 
-% detect max value of pdRatio array and save the position indices
-% of it as optParams
-[optParam1, optParam2] = max(curr_pdRatio);
 
-end
-
-
-function [ooS_equity] = runBacktest_ooS(optParam1, optParam2, data)
+function [ooS_pdRatio, ooS_equity] = runBacktest_ooS(optParam1, optParam2, data)
 %% INPUT PARAMETER
 
 % optParam1 = in-sample optimized input parameter 1
 % optParam2 = in-sample optimized input parameter 2
 
-open = data(:,1);
-high = data(:,2);
-low = data(:,3);
-close = data(:,4);
-
-% Set current date borders
-currStartDate = date + windowLenght_iS;
-currEndDate = date + windowLenght_iS + windowLength_ooS;
-
-currData = close(currStartDate : currEndDate, 1); %set current data set with date-borders
-
 % Trade strategy with optimal parameters calculated in the iS-test
-trade_strategy(optParam1, optParam2, currData); %trade on current data set, pd_ratio, pl, totalPL are returned and saved for each walk
-
-% save returned values in arrays
-ooS_pdRatio = pdRatio;
-ooS_pl = pl;
-ooS_totalPL = totalPL;
-
+[ooS_pdRatio, ooS_equity] = trade_strategy(optParam1, optParam2, data); %trade on current data set, pd_ratio, pl, totalPL are returned and saved for each walk
 
 end
 
 
-function [pdRatio, profit_loss, totalPL] = trade_strategy(param1, param2, data)
+function [pdRatio, cleanEquity] = trade_strategy(param1, param2, data)
 %% INPUT PARAMETER
 
 % param1 = period ATR
@@ -190,12 +158,14 @@ function [pdRatio, profit_loss, totalPL] = trade_strategy(param1, param2, data)
 [supertrend, trend] = mySuperTrend(data, param1, param2, 0); % call SuperTrend calculation and trading, graphics set to 0 -> no drawing
 
 open = data(:,1);
-high = data(:,2);
-low = data(:,3);
 close = data(:,4);
+
+riskPercent = 0.05; % Percentage value of account size to be risked per trade
+
 running_trade(1:param1, :) = 0;
 count_short_trades = 0;
 count_long_trades = 0;
+
 global entry_time_short;
 global entry_time_long;
 global entry_price_short;
@@ -207,32 +177,25 @@ global trade_duration_long;
 global trade_duration_short;
 global equity; 
 
-
 %% DECLARE TRADING FUNCTIONS
 
 function [] = enterShort(now)
     
-%     if  (running_trade(now) == 0) % make sure no running short trade          
             running_trade(now) = -1;
             entry_time_short = (now); % save time index of entry signal
             entry_price_short = open(now); % save entry price
-            position_size = equity *0.01; % risk 1% of initial account size
-            count_short_trades = count_short_trades + 1; %how many short trades   
-%     end
-    
+            position_size = equity * riskPercent; % risk 1% of initial account size
+            count_short_trades = count_short_trades + 1; %how many short trades      
 end
 
 
 function [] = enterLong(now)
-    
-%     if  (running_trade(now) == 0) % make sure no running trade          
+      
             running_trade(now) = 1;
             entry_time_long = now; % save time index of entry signal
             entry_price_long = open(now); % save entry price
-            position_size = equity *0.01; % risk 1% of initial account size
+            position_size = equity * riskPercent; % risk 1% of initial account size
             count_long_trades = count_long_trades + 1; %how many short trades   
-%     end
-    
 end
 
 
@@ -265,7 +228,7 @@ end
 for kk = param1+1 : length(data) % cicle through all candles of current data
     
     %Debugging
-    if kk == 29
+    if kk == 250
         x = 0;
     end
     
@@ -321,12 +284,22 @@ end
 
 totalPL = sum(profit_loss); 
 
-% continue with other key figures
+% clean profit_loss array from zeros
+cleanPL = profit_loss;
+cleanPL(find(cleanPL == 0)) = [];
 
+% calculate cleanEquity curve with clean profit_loss array
+cleanEquity(1) = equity(1);
+for kk = 2:length(cleanPL)
+        cleanEquity(kk,1) = cleanEquity(kk-1) + cleanPL(kk); %[€]        
+end
 
+% plot(cleanEquity); % only for testing and checking each equity graph
 
+maxDrawdown = maxdrawdown(cleanEquity);
 
-
+%ProfitDrawdownRatio
+pdRatio = totalPL / (maxDrawdown * 100);
 
 end
 
@@ -335,7 +308,3 @@ end
 % DEFAULT INPUT
 % myFLA(Instrument, totalWindowSize, windowLenght_iS, windowLength_ooS, moveInterval, graphics)
 % myFLA('EURUSD', 2000, 518, 259, 259, 0)
-
-% Variante statt global variables: nested functions -> https://de.mathworks.com/help/matlab/matlab_prog/nested-functions.html
-% müsste nur das end der FLA function ganz ans ende setzen, dann sollten
-% die functions auch ohne global variables auf alles zugreifen können
