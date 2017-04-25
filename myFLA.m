@@ -25,6 +25,7 @@ else %no input error -> run code
     
     global startDate;
     global endDate;
+    global equity;
 %     open;
 %     high;
 %     low;
@@ -32,7 +33,7 @@ else %no input error -> run code
 %     dates;
     
     flaPL(1) = 0; % array with all generated PL
-    flaEquity(1) = 100000; % Initial account balance
+    equity(1) = 100000; % Initial account balance
     
     % global currStartDate;
     % global currEndDate;
@@ -57,13 +58,14 @@ else %no input error -> run code
     
     startDate = dates(1) % first available date in dataset
     endDate = dates(1+totalWindowSize) % endDate = end of totalWindowSize
+    
     startDateIndex = 1;
     endDateIndex = 1+totalWindowSize;
     
     %==================== MAJOR CALCULATION ===============================
     for date = startDateIndex : moveInterval : endDateIndex
         
-        data_iS = data(startDateIndex : startDateIndex + windowLenght_iS, :)
+        data_iS = data(startDateIndex : startDateIndex + windowLenght_iS, :);
         data_ooS = data(startDateIndex + windowLenght_iS + 1 : startDateIndex + windowLenght_iS + 1 + windowLength_ooS, :);
         
         % run in-sample optimization
@@ -109,7 +111,7 @@ open = data(:,1);
 high = data(:,2);
 low = data(:,3);
 close = data(:,4);
-    
+ 
 % Set current date borders
 % currStartDate = date; % date = input from the for-loop
 % currEndDate = date + windowLenght_iS; % window-length = input from the FLA-function call
@@ -125,7 +127,7 @@ iS_totalPL = cell(upperLimit1 - lowerLimit1+1, upperLimit2- lowerLimit2+1);
 for ii = lowerLimit1 : stepParam1 : upperLimit1 %cicle through each column
     for jj = lowerLimit2 : stepParam2 : upperLimit2 %cicle through each row
         
-        trade_strategy(supertrend, ii, jj, data); %trade on current data set, pd_ratio, pl, totalPL are returned and saved for each walk
+        trade_strategy(ii, jj, data); %trade on current data set, pd_ratio, pl, totalPL are returned and saved for each walk
         % save returned values in arrays
         iS_pdRatio(ii,jj) = pdRatio;
         iS_pl(ii,jj) = pl;
@@ -177,7 +179,7 @@ ooS_totalPL = totalPL;
 end
 
 
-function [pdRatio, pl, totalPL] = trade_strategy(param1, param2, data)
+function [pdRatio, profit_loss, totalPL] = trade_strategy(param1, param2, data)
 %% INPUT PARAMETER
 
 % param1 = period ATR
@@ -191,53 +193,67 @@ open = data(:,1);
 high = data(:,2);
 low = data(:,3);
 close = data(:,4);
+running_trade(1:param1, :) = 0;
+count_short_trades = 0;
+count_long_trades = 0;
+global entry_time_short;
+global entry_time_long;
+global entry_price_short;
+global entry_price_long;
+global short_exit;
+global position_size;
+global profit_loss;
+global trade_duration_long;
+global trade_duration_short;
+global equity; 
+
 
 %% DECLARE TRADING FUNCTIONS
 
-function [entry_time_short, entry_price_short, position_size_short] = enterShort(now)
+function [] = enterShort(now)
     
-    if  (running_trade(now-1) ~= +1) % make sure no running short trade          
+%     if  (running_trade(now) == 0) % make sure no running short trade          
             running_trade(now) = -1;
-            entry_time_short = now; % save time index of entry signal
+            entry_time_short = (now); % save time index of entry signal
             entry_price_short = open(now); % save entry price
-            position_size_short = flaEquity *0.01; % risk 1% of initial account size
+            position_size = equity *0.01; % risk 1% of initial account size
             count_short_trades = count_short_trades + 1; %how many short trades   
-    end
+%     end
     
 end
 
 
-function [entry_time_long, entry_price_long, position_size] = enterLong(now)
+function [] = enterLong(now)
     
-    if  (running_trade(now-1) ~= -1) % make sure no running long trade          
+%     if  (running_trade(now) == 0) % make sure no running trade          
             running_trade(now) = 1;
             entry_time_long = now; % save time index of entry signal
             entry_price_long = open(now); % save entry price
-            position_size = flaEquity *0.01; % risk 1% of initial account size
+            position_size = equity *0.01; % risk 1% of initial account size
             count_long_trades = count_long_trades + 1; %how many short trades   
-    end
+%     end
     
 end
 
 
-function [profit_loss, trade_duration_short] = exitShort(now)
+function [] = exitShort(now)
 
     if  (running_trade(now-1) == -1) % make sure there is a running short trade        
-            running_trade(now) = 0;
-            trade_duration_short(now) = (now) - (entry_time_short - 1); % calc number of bars of trade duration (for further statistics)
-            profit_loss(now) = (entry_price_short - open(ii)) * position_size; 
+            running_trade(now,1) = 0;
+            trade_duration_short(now,1) = (now) - (entry_time_short - 1); % calc number of bars of trade duration (for further statistics)
+            profit_loss(now,1) = (entry_price_short - open(now)) * position_size; 
             short_exit = short_exit + 1; % count how many short trades are stopped out
     end
     
 end
 
 
-function [profit_loss, trade_duration_long] = exitLong(now)
+function [] = exitLong(now)
 
     if  (running_trade(now-1) == 1) % make sure there is a running short trade        
-            running_trade(now) = 0;
-            trade_duration_long(now) = (now) - (entry_time_long - 1); % calc number of bars of trade duration (for further statistics)
-            profit_loss(now) = (entry_price_long - open(ii)) * position_size; 
+            running_trade(now,1) = 0;
+            trade_duration_long(now,1) = (now) - (entry_time_long - 1); % calc number of bars of trade duration (for further statistics)
+            profit_loss(now,1) = (entry_price_long - open(now)) * position_size; 
             short_exit = short_exit + 1; % count how many short trades are stopped out
     end
     
@@ -248,12 +264,17 @@ end
 
 for kk = param1+1 : length(data) % cicle through all candles of current data
     
+    %Debugging
+    if kk == 29
+        x = 0;
+    end
+    
     % careful not to use data which we do not know today! 
     % crossing of price/supertrend calculated on the close prices can only be known and traded tomorrow! -> entry in (kk+1)
     % check: no running trade and price crosses supertrend
         
     % SHORT CROSSING OCCURS
-    if close(kk-2) > supertrend(kk-2) && close(kk-1) < supertrend(kk-1)
+    if supertrend(kk-2) >= 0 && close(kk-2) > supertrend(kk-2) && close(kk-1) < supertrend(kk-1)
     
         % no running trade
         if (running_trade(kk-1) == 0) 
@@ -261,8 +282,8 @@ for kk = param1+1 : length(data) % cicle through all candles of current data
             
         % current long trade           
         elseif (running_trade(kk-1) == 1)
-            enterShort(kk);
-            closeLong(kk);
+            exitLong(kk);
+            enterShort(kk);            
         end
             
     
@@ -274,19 +295,39 @@ for kk = param1+1 : length(data) % cicle through all candles of current data
             enterLong(kk);
             
         % current long trade           
-        elseif running_trade(kk-1) == 1 
+        elseif (running_trade(kk-1) == -1)           
+            exitShort(kk);
             enterLong(kk);
-            closeShort(kk);
         end
         
-    elseif (running_trade(kk-1) == -1) % if we have a running short trade set running trade to 1 for each bar until exit 
+    else
+        
+        if (running_trade(kk-1) == -1) % if we have a running short trade set running trade to 1 for each bar until exit
         running_trade(kk) = -1;
         
-    elseif (running_trade(kk-1) == 1) % if we have a running long trade set running trade to 1 for each bar until exit 
+        
+        elseif (running_trade(kk-1) == 1) % if we have a running long trade set running trade to 1 for each bar until exit 
         running_trade(kk) = 1;
+        
+        
+        elseif (running_trade(kk-1) == 0) % if we have a running long trade set running trade to 1 for each bar until exit 
+        running_trade(kk) = 0;
+        end
     
     end    
 end
+
+%% KEY FIGURES 
+
+totalPL = sum(profit_loss); 
+
+% continue with other key figures
+
+
+
+
+
+
 end
 
 % =========================================================================

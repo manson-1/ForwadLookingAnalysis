@@ -28,7 +28,7 @@ open = data(:,1);
 high = data(:,2);
 low = data(:,3);
 close = data(:,4);
-date = datetime(txt(2:end,1));
+% date = datetime(txt(2:end,1));
 
 for ii = 1:length(close)
     mid(ii,:) = (high(ii) + low(ii)) / 2; %Median price
@@ -194,7 +194,7 @@ supertrend_draw_up(1:periodATR+1) = NaN;
          s1 = subplot(1,1,1);
 %               candle(high(start_bar:end_bar),low(start_bar:end_bar),close(start_bar:end_bar),open(start_bar:end_bar), 'k', date(start_bar:end_bar), 'yyyy'); % plot the candle chart
                 candle(high,low,close,open,'k');
-                title(s1, Instrument); % Instrument = name of input data series
+%                 title(s1, Instrument); % Instrument = name of input data series
                 ylabel(s1, 'Price');
                 xlabel(s1, 'Date');
                 hold on
