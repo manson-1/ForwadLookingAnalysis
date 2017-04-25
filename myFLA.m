@@ -1,5 +1,8 @@
 function [flaEquity] = myFLA(Instrument, totalWindowSize, windowLenght_iS, windowLength_ooS, moveInterval, graphics)
-%% INPUT PARAMETER
+
+clear global; % clear all global variables from previous runs
+    
+    %% INPUT PARAMETER
 % Instrument        = which data to load, e.g. 'EURUSD'
 % totalWindowSize   = measured from the first data point, how much data
 %                   should be taken into calculation for the consecutive walks.
@@ -123,14 +126,6 @@ end
 
 optParam1 = indexTemp(I);
 optParam2 = I;
-
-% Necessary?
-clear pdRatio;
-clear iS_pdRatio;
-clear profit_loss;
-clear totalPL;
-clear cleanPL;
-clear cleanEquity;
 
 end
 
