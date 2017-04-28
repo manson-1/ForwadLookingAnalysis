@@ -120,24 +120,25 @@ function [optParam1, optParam2] = runOptimizer_iS(lowerLimit1, upperLimit1, lowe
 
 % Initialize arrays with dimensions according to input limits
 iS_pdRatio = zeros(upperLimit1, upperLimit2- lowerLimit2+1);
-iS_pdRatio(1:lowerLimit1-1, 1:upperLimit2) = NaN;
+iS_pdRatio(1:lowerLimit1-1, 1:upperLimit2) = NaN; % set not needed values to NaN
 
 % cicle through all parameter combinations and create a heatmap
 for ii = lowerLimit1 : stepParam1 : upperLimit1 %cicle through each column
     for jj = lowerLimit2 : stepParam2 : upperLimit2 %cicle through each row
         
-        pdRatio = trade_strategy(ii, jj, data); %trade on current data set, pd_ratio is returned and saved for each walk save returned values in arrays        
-        iS_pdRatio(ii,jj) = pdRatio;
+        % trade on current data set with ii and jj as input parameter, pd_ratio is returned and saved for each walk       
+        pdRatio = trade_strategy(ii, jj, data); 
+        iS_pdRatio(ii,jj) = pdRatio; % save result in array
         
     end
 end
 
-% detect max value of pdRatio array and save the position indices of it as optParams
-[maximumsTemp, indexTemp] = max(iS_pdRatio);
-[M, I] = max(maximumsTemp);
+% detect max value of pdRatio-array and save the position-indices of it -> optimal input parameter
+[maximumTemp, indexTemp] = max(iS_pdRatio); % detect max of each column and save as vector
+[max_, ind] = max(maximumTemp); % detect max of the above saved maximum-vector
 
-optParam1 = indexTemp(I);
-optParam2 = I;
+optParam1 = indexTemp(ind);
+optParam2 = ind;
 
 end
 
@@ -148,8 +149,9 @@ function [ooS_pdRatio, ooS_equity] = runBacktest_ooS(optParam1, optParam2, data)
 % optParam1 = in-sample optimized input parameter 1
 % optParam2 = in-sample optimized input parameter 2
 
-% Trade strategy with optimal parameters calculated in the iS-test
-[ooS_pdRatio, ooS_equity] = trade_strategy(optParam1, optParam2, data); %trade on current data set, pd_ratio, pl, totalPL are returned and saved for each walk
+% trade strategy with optimal parameters calculated in the iS-test
+% use current data set //  pd_ratio and equity are returned and saved for each walk
+[ooS_pdRatio, ooS_equity] = trade_strategy(optParam1, optParam2, data); 
 
 end
 
@@ -157,62 +159,77 @@ end
 function [pdRatio, cleanEquity] = trade_strategy(param1, param2, data)
 %% INPUT PARAMETER
 
+% For SuperTrend-Trading:
 % param1 = period ATR
 % param2 = multiplier
 % data = dataset to trade the strategy
 
-% receive array with supertrend data + trend-direction of data
+%% CALCULATE SUPERTREND
+% receive array with supertrend data and trend-direction (not necessary) of data
 [supertrend, trend] = mySuperTrend(data, param1, param2, 0); % call SuperTrend calculation and trading, graphics set to 0 -> no drawing
 
+%% PREPARE DATA
 open = data(:,1);
 close = data(:,4);
 
-riskPercent = 0.05; % Percentage value of account size to be risked per trade
+%% INITIALIZE 
 
-running_trade(1:param1, :) = 0;
-count_short_trades = 0;
-count_long_trades = 0;
-
-global entry_time_short;
-global entry_time_long;
-global entry_price_short;
-global entry_price_long;
-global short_exit;
-global position_size;
-global profit_loss;
-global trade_duration_long;
-global trade_duration_short;
+% global variables to be able to access them in all following functions
 global initBalance; 
+global riskPercent;
+global positionSize;
+
+global profitLoss;
+global runningTrade;
+
+global entryTimeShort;
+global entryTimeLong;
+global entryPriceShort;
+global entryPriceLong;
+
+global exitCounterShort;
+global exitCounterLong;
+global tradeCounterShort;
+global tradeCounterLong;
+global tradeDurationLong;
+global tradeDurationShort;
+
+runningTrade(1:param1, :) = 0; % set first values of the array to 0 -> no running trade at the beginning
+riskPercent = 0.05; % Percentage value of account size to be risked per trade
 
 %% DECLARE TRADING FUNCTIONS
 
 function [] = enterShort(now)
     
-            running_trade(now) = -1;
-            entry_time_short = (now); % save time index of entry signal
-            entry_price_short = open(now); % save entry price
-            position_size = initBalance * riskPercent; % risk 1% of initial account size
-            count_short_trades = count_short_trades + 1; %how many short trades      
+            runningTrade(now) = -1;
+            entryTimeShort = (now); % save time index of entry signal
+            entryPriceShort = open(now); % save entry price
+            positionSize = initBalance * riskPercent; % risk 1% of initial account size
+            tradeCounterShort = tradeCounterShort + 1; % count how many short trades      
+
 end
 
 
 function [] = enterLong(now)
       
-            running_trade(now) = 1;
-            entry_time_long = now; % save time index of entry signal
-            entry_price_long = open(now); % save entry price
-            position_size = initBalance * riskPercent; % risk 1% of initial account size
-            count_long_trades = count_long_trades + 1; %how many short trades   
+            runningTrade(now) = 1;
+            entryTimeLong = now; % save time index of entry signal
+            entryPriceLong = open(now); % save entry price
+            positionSize = initBalance * riskPercent; % risk 1% of initial account size
+            tradeCounterLong = tradeCounterLong + 1; % count how many short trades   
+
 end
 
 
 function [] = exitShort(now)
 
-    if  (running_trade(now-1) == -1) % make sure there is a running short trade        
-            running_trade(now,1) = 0;
-            trade_duration_short(now,1) = (now) - (entry_time_short - 1); % calc number of bars of trade duration (for further statistics)
-            profit_loss(now,1) = (entry_price_short - open(now)) * position_size; 
-            short_exit = short_exit + 1; % count how many short trades are stopped out
+    if  (runningTrade(now-1) == -1) % make sure there is a running short trade        
+            
+        runningTrade(now) = 0;
+        tradeDurationShort(now) = (now) - (entryTimeShort - 1); % calculate number of bars of trade duration (for further statistics)
+        profitLoss(now,:) = (entryPriceShort - open(now)) * positionSize; % calculate realized profit/loss
+        exitCounterShort = exitCounterShort + 1; % count how many short trades are stopped out
+   
     end
     
 end
@@ -220,11 +237,13 @@ end
 
 function [] = exitLong(now)
 
-    if  (running_trade(now-1) == 1) % make sure there is a running short trade        
-            running_trade(now,1) = 0;
-            trade_duration_long(now,1) = (now) - (entry_time_long - 1); % calc number of bars of trade duration (for further statistics)
-            profit_loss(now,1) = (entry_price_long - open(now)) * position_size; 
-            short_exit = short_exit + 1; % count how many short trades are stopped out
+    if  (runningTrade(now-1) == 1) % make sure there is a running short trade        
+            
+        runningTrade(now) = 0;
+        tradeDurationLong(now) = (now) - (entryTimeLong - 1); % calculate number of bars of trade duration (for further statistics)
+        profitLoss(now,:) = (open(now) - entryPriceLong) * positionSize; % calculate realized profit/loss
+        exitCounterLong = exitCounterLong + 1; % count how many short trades are stopped out
+    
     end
     
 end
@@ -233,55 +252,58 @@ end
 %% SUPERTREND TRADING
 
 for kk = param1+1 : length(data) % cicle through all candles of current data
-    
-    %Debugging
-    if kk == 250
-        x = 0;
-    end
+  
+% ======================
+%     %Debugging
+%     if kk == 250
+%         x = 0;
+%     end
+% ======================
     
     % careful not to use data which we do not know today! 
     % crossing of price/supertrend calculated on the close prices can only be known and traded tomorrow! -> entry in (kk+1)
-    % check: no running trade and price crosses supertrend
+    
         
-    % SHORT CROSSING OCCURS
-    if supertrend(kk-2) >= 0 && close(kk-2) > supertrend(kk-2) && close(kk-1) < supertrend(kk-1)
+    % SHORT CROSSING OCCURED ON YESTERDAYS CLOSE 
+    % check: supertrend has a real value + supertrend crossing occured yesterday
+    if supertrend(kk-2) >= 0 && (close(kk-2) > supertrend(kk-2) && close(kk-1) <= supertrend(kk-1))
     
         % no running trade
-        if (running_trade(kk-1) == 0) 
+        if (runningTrade(kk-1) == 0) % if currently no running trade
             enterShort(kk);
             
         % current long trade           
-        elseif (running_trade(kk-1) == 1)
+        elseif (runningTrade(kk-1) == 1) % if currently running long trade
             exitLong(kk);
             enterShort(kk);            
         end
             
     
-    % LONG CROSSING OCCURS
-    elseif close(kk-2) < supertrend(kk-2) && close(kk-1) > supertrend(kk-1)
+    % LONG CROSSING OCCURED ON YESTERDAYS CLOSE
+    elseif supertrend(kk-2) >= 0 && (close(kk-2) < supertrend(kk-2) && close(kk-1) >= supertrend(kk-1))
             
         % no running trade
-        if (running_trade(kk-1) == 0)
+        if (runningTrade(kk-1) == 0) % if currently no running trade
             enterLong(kk);
             
         % current long trade           
-        elseif (running_trade(kk-1) == -1)           
+        elseif (runningTrade(kk-1) == -1) % if currently running short trade
             exitShort(kk);
             enterLong(kk);
         end
         
-    else
+    else % ADD DISPLAY FOR ALL OPTIM PARAMS
         
-        if (running_trade(kk-1) == -1) % if we have a running short trade set running trade to 1 for each bar until exit
-        running_trade(kk) = -1;
-        
-        
-        elseif (running_trade(kk-1) == 1) % if we have a running long trade set running trade to 1 for each bar until exit 
-        running_trade(kk) = 1;
+        if (runningTrade(kk-1) == -1) % if we have a running short trade set running trade to 1 for each bar until exit
+        runningTrade(kk) = -1;
         
         
-        elseif (running_trade(kk-1) == 0) % if we have a running long trade set running trade to 1 for each bar until exit 
-        running_trade(kk) = 0;
+        elseif (runningTrade(kk-1) == 1) % if we have a running long trade set running trade to 1 for each bar until exit 
+        runningTrade(kk) = 1;
+        
+        
+        elseif (runningTrade(kk-1) == 0) % if we have a running long trade set running trade to 1 for each bar until exit 
+        runningTrade(kk) = 0;
         end
     
     end    
@@ -289,13 +311,13 @@ end
 
 %% KEY FIGURES 
 
-totalPL = sum(profit_loss); 
+totalPL = sum(profitLoss); 
 
-% clean profit_loss array from zeros
-cleanPL = profit_loss;
+% clean profitLoss array from zeros
+cleanPL = profitLoss;
 cleanPL(find(cleanPL == 0)) = [];
 
-% calculate cleanEquity curve with clean profit_loss array
+% calculate cleanEquity curve with clean profitLoss array
 cleanEquity(1) = initBalance;
 for kk = 2:length(cleanPL)
         cleanEquity(kk,1) = cleanEquity(kk-1) + cleanPL(kk); %[€]        
@@ -321,4 +343,6 @@ end
 % Positionsgröße aktuell 1% des Startkapitals (statische Positionsgröße) -> ok oder ändern?
 % Welche Logik für den StopLoss / TakeProfit verwenden?
 % soll jede verwendete Variable zuerst einmal mit 0 o der zeros() initialisiert werden?
+% Welche Metrics/statistics sollen noch berechnet werden?
+% WalkForwardEfficiency berechnen? Siehe Robert Pardo
 
