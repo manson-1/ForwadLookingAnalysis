@@ -1,10 +1,10 @@
-function [flaEquity] = myFLA(Instrument, totalWindowSize, windowLenght_iS, windowLength_ooS, moveInterval, graphics)
+function [] = myFLA(Instrument, totalDataSize, windowLenght_iS, windowLength_ooS, moveInterval, graphics)
 
 clear global; % clear all global variables from previous runs
     
     %% INPUT PARAMETER
 % Instrument        = which data to load, e.g. 'EURUSD'
-% totalWindowSize   = measured from the first data point, how much data
+% totalDataSize   = measured from the first data point, how much data
 %                   should be taken into calculation for the consecutive walks.
 %                   FLA stops when end of totalWindowSize is reached
 % windowLenght_iS   = window length of data for in-sample optimization, measured in trading days, default = 518 
@@ -16,54 +16,66 @@ clear global; % clear all global variables from previous runs
 %% CHECK FOR CORRECT INPUT
 
 if graphics > 1
-    error_graphics = 'Please check your input parameter, graphics must not be greater than 1'
+    error_graphics = 'Please check your input parameters, graphics must not be greater than 1'
     
 elseif graphics < 0
-    error_graphics = 'Please check your input parameter, graphics must not be less than 1'
+    error_graphics = 'Please check your input parameters, graphics must not be less than 1'
+    
+elseif (windowLenght_iS + windowLength_ooS) > totalDataSize
+    error_windowlength = 'Please check your input parameters, in-sample + out-of-sample window length must not exceed totalDataSize'
+    
+elseif moveInterval > totalDataSize
+    error_moveinterval = 'Please check your input parameters, moveInterval must not exceed totalDataSize'
     
 else %no input error -> run code   
     
     %% INITIALIZE VECTORS/ARRAYS/VARIABLES
-    % global to be available in all functions
     
-    global startDate;
-    global endDate;
-    global equity;    
+    % global to be available in all functions        
+    global initBalance;    
+    
+    count_walks = 0; % count how many forward-walks are performed
+    
+%     startDate_iS = datetime(50,1); % prepare array for 50 walks
+%     startDate_ooS = datetime(50,1); % prepare array for 50 walks
+%     endDate_iS = zeros(50,1); % prepare array for 50 walks
+%     endDate_ooS = zeros(50,1); % prepare array for 50 walks
     
     flaEquity = 0; % array with all generated PL
-    equity(1) = 10000; % Initial account balance
+    initBalance = 10000; % Initial account balance
     
     %----------------------------------------------------------------------
     
     %% DATA PREPARATION
     
-    % read data
+    % read price data and dates
     [data txt] = xlsread(Instrument);
     
-    % assign data - global to be available in all functions
-%     open = data(:,1);
-%     high = data(:,2);
-%     low = data(:,3);
-%     close = data(:,4);
+    % convert txt-dates to datetime variables
      dates = datetime(txt(2:end,1));
     %----------------------------------------------------------------------
     
     %% WALK FORWARD
     
-    startDate = dates(1) % first available date in dataset
-    endDate = dates(1+totalWindowSize) % endDate = end of totalWindowSize
-    
+    % Assign values for the first walk
     startDateIndex = 1;
-    endDateIndex = 1+totalWindowSize;
+    endDateIndex = 1+totalDataSize;
     
     %==================== MAJOR CALCULATION ===============================
     for date = startDateIndex : moveInterval : endDateIndex
         
+        count_walks = count_walks + 1;
+        
+        % Save start and end-dates for later print to command window
+        startDate_iS(count_walks,:) = dates(date); 
+        endDate_iS(count_walks,:) = dates(date + windowLenght_iS);
+        startDate_ooS(count_walks,:) = dates(date + windowLenght_iS);
+        endDate_ooS(count_walks,:) = dates(date + windowLenght_iS + 1 + windowLength_ooS);
+    
         data_iS = data(date : date + windowLenght_iS, :);
         data_ooS = data(date + windowLenght_iS + 1 : date + windowLenght_iS + 1 + windowLength_ooS, :);
         
         % run in-sample optimization
-        % runOptimizer_iS(1,2,3,4);
         [optParam1, optParam2] = runOptimizer_iS(5, 15, 1, 5, 1, 1, data_iS);
         
         % run out-of-sample backtest
@@ -76,16 +88,16 @@ else %no input error -> run code
         end
         
     end
+    
+    % Print to command window for controlling dates
+    count_walks
+    startDate_iS
+    endDate_iS
+    startDate_ooS
+    endDate_ooS
+   
     %======================================================================
-    
-%     % delete all zeros of PL array
-%     flaPL(find(flaPL == 0)) = [];
-%     
-%     % Calculate ooS EquityCurve from cleaned P&L data
-%     for ii = 2 : length(flaPL)
-%         flaEquity(ii) = flaEquity(ii-1) + flaPL(ii);
-%     end
-    
+        
     if (graphics == 1)
         plot(flaEquity); % flaEquity = each ooS_equity combined
     end
@@ -170,7 +182,7 @@ global position_size;
 global profit_loss;
 global trade_duration_long;
 global trade_duration_short;
-global equity; 
+global initBalance; 
 
 %% DECLARE TRADING FUNCTIONS
 
@@ -179,7 +191,7 @@ function [] = enterShort(now)
             running_trade(now) = -1;
             entry_time_short = (now); % save time index of entry signal
             entry_price_short = open(now); % save entry price
-            position_size = equity * riskPercent; % risk 1% of initial account size
+            position_size = initBalance * riskPercent; % risk 1% of initial account size
             count_short_trades = count_short_trades + 1; %how many short trades      
 end
 
@@ -189,7 +201,7 @@ function [] = enterLong(now)
             running_trade(now) = 1;
             entry_time_long = now; % save time index of entry signal
             entry_price_long = open(now); % save entry price
-            position_size = equity * riskPercent; % risk 1% of initial account size
+            position_size = initBalance * riskPercent; % risk 1% of initial account size
             count_long_trades = count_long_trades + 1; %how many short trades   
 end
 
@@ -284,7 +296,7 @@ cleanPL = profit_loss;
 cleanPL(find(cleanPL == 0)) = [];
 
 % calculate cleanEquity curve with clean profit_loss array
-cleanEquity(1) = equity(1);
+cleanEquity(1) = initBalance;
 for kk = 2:length(cleanPL)
         cleanEquity(kk,1) = cleanEquity(kk-1) + cleanPL(kk); %[€]        
 end
@@ -303,3 +315,10 @@ end
 % DEFAULT INPUT
 % myFLA(Instrument, totalWindowSize, windowLenght_iS, windowLength_ooS, moveInterval, graphics)
 % myFLA('EURUSD', 2000, 518, 259, 259, 0)
+
+%% FRAGEN:
+
+% Positionsgröße aktuell 1% des Startkapitals (statische Positionsgröße) -> ok oder ändern?
+% Welche Logik für den StopLoss / TakeProfit verwenden?
+% soll jede verwendete Variable zuerst einmal mit 0 o der zeros() initialisiert werden?
+
