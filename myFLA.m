@@ -434,5 +434,5 @@ end
 % Welche Logik für den StopLoss / TakeProfit verwenden?
 % soll jede verwendete Variable zuerst einmal mit 0 oder zeros() initialisiert werden?
 % Welche Metrics/statistics sollen noch berechnet werden?
-% WalkForwardEfficiency berechnen? Siehe Robert Pardo
+% WalkForwardEfficiency berechnen? Siehe Robert Pardo p.238/239
 
