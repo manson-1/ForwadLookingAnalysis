@@ -1,15 +1,14 @@
-function [] = myFLA(Instrument, totalDataSize, windowLenght_iS, windowLength_ooS, moveInterval, graphics)
+function [] = myFLA(Instrument, totalDataSize, windowLenght_iS, windowLength_ooS, graphics)
 
 clear global; % clear all global variables from previous runs
     
-    %% INPUT PARAMETER
+%% INPUT PARAMETER
 % Instrument        = which data to load, e.g. 'EURUSD'
 % totalDataSize     = measured from the first data point, how much data
 %                   should be taken into calculation for the consecutive walks.
 %                   FLA stops when end of totalWindowSize is reached
 % windowLenght_iS   = window length of data for in-sample optimization, measured in trading days, default = 518 
 % windowLength_ooS  = window length of data for out-of-sample backtest measured in trading days, default = 259 
-% moveInterval      = number of trading days to shift (per walk), default = 259
 % if graphics       == 1 plotting is activated
 %--------------------------------------------------------------------------
 
@@ -33,10 +32,6 @@ elseif graphics < 0
 elseif (windowLenght_iS + windowLength_ooS) > totalDataSize
     error_windowlength = 'Please check your input parameters, in-sample + out-of-sample window length must not exceed totalDataSize'
     
-elseif moveInterval > totalDataSize
-    error_moveinterval = 'Please check your input parameters, moveInterval must not exceed totalDataSize'
-    
-    
 % elseif totalDataSize > size(data) - windowLenght_iS - windowLength_ooS
 %     error_totalDataSize = 'Please check your input parameters, totalDataSize is greater than available data in the price-data file'
 %     availableData = (length(data) - windowLenght_iS - windowLength_ooS)
@@ -49,9 +44,13 @@ else %no input error -> run code
     global initBalance;    
     
     count_walks = 0; % count how many forward-walks are performed 
-    flaProfitLoss = NaN;
-    flaEquity = 0; % array with all generated PL
+    ooS_ProfitLoss = NaN;
+    iS_ProfitLoss = NaN;
+    ooS_Equity = 0; % array with all generated PL
     initBalance = 10000; % Initial account balance
+    
+    ooS_pdRatios = 0;
+    iS_pdRatios = 0;
     
     %----------------------------------------------------------------------
     
@@ -62,17 +61,18 @@ else %no input error -> run code
     endDateIndex = 1+totalDataSize;
     
     %==================== MAJOR CALCULATION ===============================
-    for date = startDateIndex : moveInterval : endDateIndex
+    
+    % data is moved each walk by the size windowLength_ooS
+    for date = startDateIndex : windowLength_ooS : endDateIndex
         
         count_walks = count_walks + 1;
-        clear cleanPL;
         
-        % ---------------------
-        % DEBUGGING
-        if count_walks == 8        
-            x = 0;            
-        end
-        % ---------------------
+%         ---------------------
+%         DEBUGGING
+%         if count_walks == 5        
+%             x = 0;            
+%         end
+%         ---------------------
         
         % Save start and end-dates for later print to command window
         startDate_iS(count_walks,:) = dates(date); 
@@ -87,25 +87,30 @@ else %no input error -> run code
         % =================================================================
         % run in-sample optimization
         [optParam1, optParam2] = runOptimizer_iS(5, 15, 1, 5, 1, 1, data_iS);
-        
-        % run out-of-sample backtest    
-        [ooS_pdRatio, cleanPL] = runBacktest_ooS(optParam1, optParam2, data_ooS);    
+        [iS_pdRatio, iS_cleanPL] = runBacktest(optParam1, optParam2, data_iS); % for later comparison to ooS-pdRatio
+                   
+        % run out-of-sample backtest        
+        [ooS_pdRatio, ooS_cleanPL] = runBacktest(optParam1, optParam2, data_ooS);    
+        % mySuperTrend(data_ooS, optParam1, optParam2, 1); % for testing purpose - to see on which chart is traded
         % =================================================================
         
         % Save the results in vectors for later display in command window                     
         optParams(count_walks,:) = [optParam1, optParam2];
-        ooS_pdRatios(count_walks,:) = ooS_pdRatio;        
+        ooS_pdRatios(count_walks,:) = ooS_pdRatio;  
+        iS_pdRatios(count_walks,:) = iS_pdRatio;
         
         % Calculate the combined forwardLooking-P&L by combining each out-of-sample P&L vector   
-        flaProfitLoss = vertcat(flaProfitLoss, cleanPL);
-
+        ooS_ProfitLoss = vertcat(ooS_ProfitLoss, ooS_cleanPL);
+        iS_ProfitLoss = vertcat(iS_ProfitLoss, iS_cleanPL);
     end
     
-    flaEquity(1) = initBalance; % first data point = initial account balance
-    for kk = 2:length(flaProfitLoss)
-    
-        % calculate equity curve by adding up each profit/loss to current account balance
-        flaEquity(kk,1) = flaEquity(kk-1) + flaProfitLoss(kk); %[€]        
+    % calculate final equity curve by adding up each profit/loss to current account balance
+    ooS_Equity(1) = initBalance; % first data point = initial account balance
+    iS_Equity(1) = initBalance; % first data point = initial account balance
+    for kk = 2:length(ooS_ProfitLoss)
+            
+        ooS_Equity(kk,1) = ooS_Equity(kk-1) + ooS_ProfitLoss(kk); %[€]         
+        iS_Equity(kk,1) = iS_Equity(kk-1) + iS_ProfitLoss(kk); %[€]
 
     end
     
@@ -115,14 +120,17 @@ else %no input error -> run code
     endDate_iS
     startDate_ooS
     endDate_ooS
-    optParams
-    ooS_pdRatios   
+    optParams   
+    iS_pdRatios
+    ooS_pdRatios
     
     % Plot the combined FLA-Equity curve
     if (graphics == 1)
         
         figure;
-        plot(flaEquity); % flaEquity = each ooS_equity combined
+        plot(ooS_Equity); % ooS_Equity = each ooS_equity combined
+        figure;
+        plot(iS_Equity);
         
     end
     
@@ -165,7 +173,7 @@ optParam2 = ind;
 end
 
 
-function [ooS_pdRatio, cleanPL] = runBacktest_ooS(optParam1, optParam2, data)
+function [pdRatio, cleanPL] = runBacktest(optParam1, optParam2, data)
 %% INPUT PARAMETER
 
 % optParam1 = in-sample optimized input parameter 1
@@ -173,7 +181,7 @@ function [ooS_pdRatio, cleanPL] = runBacktest_ooS(optParam1, optParam2, data)
 
 % trade strategy with optimal parameters calculated in the iS-test
 % use current data set //  pd_ratio and equity are returned and saved for each walk
-[ooS_pdRatio, ooS_equity, cleanPL] = trade_strategy(optParam1, optParam2, data); 
+[pdRatio, cleanPL] = trade_strategy(optParam1, optParam2, data); 
 
 % figure;
 % plot(ooS_equity)
@@ -181,7 +189,7 @@ function [ooS_pdRatio, cleanPL] = runBacktest_ooS(optParam1, optParam2, data)
 end
 
 
-function [pdRatio, cleanEquity, cleanPL] = trade_strategy(param1, param2, data)
+function [pdRatio, cleanPL] = trade_strategy(param1, param2, data)
 %% INPUT PARAMETER
 
 % For SuperTrend-Trading:
@@ -225,6 +233,7 @@ clear runningTrade;
 clear tradeDurationLong;
 clear tradeDurationShort;
 
+% Assign first values
 profitLoss(1) = 0;
 runningTrade(1:param1, :) = 0; % set first values of the array to 0 -> no running trade at the beginning
 riskPercent = 0.05; % Percentage value of account size to be risked per trade
@@ -355,58 +364,55 @@ for kk = param1+1 : length(data) % cicle through all candles of current data
 end
 
     %% KEY FIGURES 
-
-    if param1 == 5 && param2 == 5
-        x=0;
-    end
     
-        totalPL = sum(profitLoss); 
+    totalPL = sum(profitLoss); 
 
-        % Clean profitLoss array from zeros
-        cleanPL = profitLoss; % use new array for further changes -> profitLoss array should not be changed
-        cleanPL(find(cleanPL == 0)) = []; % delete value if value = 0
+    % Clean profitLoss array from zeros
+    cleanPL = profitLoss; % use new array for further changes -> profitLoss array should not be changed
+    cleanPL(find(cleanPL == 0)) = []; % delete value if value = 0
 
-        % Calculate cleanEquity curve with clean profitLoss array
-        cleanEquity(1) = initBalance; % first vaule = initial account balance
-        
-        if length(cleanPL) == 0 % no trade was computed
-            maxDrawdown = NaN;
+    % Calculate cleanEquity curve with clean profitLoss array
+    cleanEquity(1) = initBalance; % first vaule = initial account balance
+
+    % Check how many datapoints available
+    if length(cleanPL) == 0 % no trade was computed
+        maxDrawdown = NaN;
+        pdRatio = NaN;
+
+    elseif length(cleanPL) == 1 % only one trade was computed
+        cleanEquity(2) = cleanEquity(1) + cleanPL(1);
+        maxDrawdown = NaN;
+        pdRatio = NaN;
+
+    else % more than 1 trades were computed
+
+        for kk = 1:length(cleanPL)
+
+                % calculate equity curve by adding up each profit/loss to current account balance
+                cleanEquity(kk+1,1) = cleanEquity(kk) + cleanPL(kk); %[€]        
+
+        end
+
+        % Calculate maximum drawdown of the equity-curve - use internal matlab function maxdrawdown()
+        maxDrawdown = maxdrawdown(cleanEquity) * 100;
+
+        % Calculate ProfitDrawdownRatio
+        if maxDrawdown ~= 0
+
+            pdRatio = totalPL / maxDrawdown;
+
+        else
             pdRatio = NaN;
-            
-        elseif length(cleanPL) == 1 % only one trade was computed
-            cleanEquity(2) = cleanEquity(1) + cleanPL(1);
-            maxDrawdown = NaN;
-            pdRatio = NaN;
-        
-        else % more than 1 trades were computed
-            
-            for kk = 1:length(cleanPL)
 
-                    % calculate equity curve by adding up each profit/loss to current account balance
-                    cleanEquity(kk+1,1) = cleanEquity(kk) + cleanPL(kk); %[€]        
-
-            end
-
-            % Calculate maximum drawdown of the equity-curve - use internal matlab function maxdrawdown()
-            maxDrawdown = maxdrawdown(cleanEquity) * 100;
-
-            % Calculate ProfitDrawdownRatio
-            if maxDrawdown ~= 0
-               
-                pdRatio = totalPL / maxDrawdown;
-            
-            else
-                pdRatio = NaN;
-            
-            end
-        end     
+        end
+    end     
 end
 
 %% DEFAULT INPUT
 
 % =========================================================================
-% myFLA(Instrument, totalWindowSize, windowLenght_iS, windowLength_ooS, moveInterval, graphics)
-% myFLA('EURUSD', 2000, 518, 259, 259, 0)
+% myFLA(Instrument, totalWindowSize, windowLenght_iS, windowLength_ooS, graphics)
+% myFLA('EURGBP', 2000, 518, 259, 0)
 % =========================================================================
 
 %% FRAGEN:
