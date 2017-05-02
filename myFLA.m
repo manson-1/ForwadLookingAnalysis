@@ -48,7 +48,8 @@ else %no input error -> run code
     % global to be available in all functions        
     global initBalance;    
     
-    count_walks = 0; % count how many forward-walks are performed    
+    count_walks = 0; % count how many forward-walks are performed 
+    flaProfitLoss = NaN;
     flaEquity = 0; % array with all generated PL
     initBalance = 10000; % Initial account balance
     
@@ -64,10 +65,11 @@ else %no input error -> run code
     for date = startDateIndex : moveInterval : endDateIndex
         
         count_walks = count_walks + 1;
+        clear cleanPL;
         
         % ---------------------
         % DEBUGGING
-        if count_walks == 2            
+        if count_walks == 8        
             x = 0;            
         end
         % ---------------------
@@ -86,24 +88,25 @@ else %no input error -> run code
         % run in-sample optimization
         [optParam1, optParam2] = runOptimizer_iS(5, 15, 1, 5, 1, 1, data_iS);
         
-        % run out-of-sample backtest
-        [ooS_pdRatio, ooS_equity] = runBacktest_ooS(optParam1, optParam2, data_ooS);       
+        % run out-of-sample backtest    
+        [ooS_pdRatio, cleanPL] = runBacktest_ooS(optParam1, optParam2, data_ooS);    
         % =================================================================
         
         % Save the results in vectors for later display in command window                     
         optParams(count_walks,:) = [optParam1, optParam2];
         ooS_pdRatios(count_walks,:) = ooS_pdRatio;        
         
-        % Calculate the combined forwardLooking-Equity by combining each out-of-sample equity curve
-        if flaEquity(1) ~= 0 % only relevant in first walk
-           
-            flaEquity = vertcat(flaEquity, ooS_equity); % merge new ooS_pl into final pl-array
-        
-        else
-            
-            flaEquity = ooS_equity; % only relevant in first walk
-       
-        end        
+        % Calculate the combined forwardLooking-P&L by combining each out-of-sample P&L vector   
+        flaProfitLoss = vertcat(flaProfitLoss, cleanPL);
+
+    end
+    
+    flaEquity(1) = initBalance; % first data point = initial account balance
+    for kk = 2:length(flaProfitLoss)
+    
+        % calculate equity curve by adding up each profit/loss to current account balance
+        flaEquity(kk,1) = flaEquity(kk-1) + flaProfitLoss(kk); %[€]        
+
     end
     
     % Print to command window for controlling dates
@@ -118,6 +121,7 @@ else %no input error -> run code
     % Plot the combined FLA-Equity curve
     if (graphics == 1)
         
+        figure;
         plot(flaEquity); % flaEquity = each ooS_equity combined
         
     end
@@ -161,7 +165,7 @@ optParam2 = ind;
 end
 
 
-function [ooS_pdRatio, ooS_equity] = runBacktest_ooS(optParam1, optParam2, data)
+function [ooS_pdRatio, cleanPL] = runBacktest_ooS(optParam1, optParam2, data)
 %% INPUT PARAMETER
 
 % optParam1 = in-sample optimized input parameter 1
@@ -169,12 +173,15 @@ function [ooS_pdRatio, ooS_equity] = runBacktest_ooS(optParam1, optParam2, data)
 
 % trade strategy with optimal parameters calculated in the iS-test
 % use current data set //  pd_ratio and equity are returned and saved for each walk
-[ooS_pdRatio, ooS_equity] = trade_strategy(optParam1, optParam2, data); 
+[ooS_pdRatio, ooS_equity, cleanPL] = trade_strategy(optParam1, optParam2, data); 
+
+% figure;
+% plot(ooS_equity)
 
 end
 
 
-function [pdRatio, cleanEquity] = trade_strategy(param1, param2, data)
+function [pdRatio, cleanEquity, cleanPL] = trade_strategy(param1, param2, data)
 %% INPUT PARAMETER
 
 % For SuperTrend-Trading:
@@ -212,6 +219,13 @@ global tradeCounterLong;
 global tradeDurationLong;
 global tradeDurationShort;
 
+% clear variables from previous runs
+clear profitLoss;
+clear runningTrade;
+clear tradeDurationLong;
+clear tradeDurationShort;
+
+profitLoss(1) = 0;
 runningTrade(1:param1, :) = 0; % set first values of the array to 0 -> no running trade at the beginning
 riskPercent = 0.05; % Percentage value of account size to be risked per trade
 
@@ -245,7 +259,7 @@ function [] = exitShort(now)
             
         runningTrade(now) = 0;
         tradeDurationShort(now) = (now) - (entryTimeShort - 1); % calculate number of bars of trade duration (for further statistics)
-        profitLoss(now,:) = (entryPriceShort - open(now)) * positionSize; % calculate realized profit/loss
+        profitLoss(now,:) = (entryPriceShort - open(now,:)) * positionSize; % calculate realized profit/loss
         exitCounterShort = exitCounterShort + 1; % count how many short trades are stopped out
    
     end
@@ -272,19 +286,18 @@ end
 for kk = param1+1 : length(data) % cicle through all candles of current data
   
 % ======================
-%     %Debugging
-%     if kk == 250
+%     Debugging
+%     if kk == 102
 %         x = 0;
 %     end
 % ======================
     
     % careful not to use data which we do not know today! 
     % crossing of price/supertrend calculated on the close prices can only be known and traded tomorrow! -> entry in (kk+1)
-    
-        
+   
     % SHORT CROSSING OCCURED ON YESTERDAYS CLOSE 
     % check: supertrend has a real value + supertrend crossing occured yesterday
-    if supertrend(kk-2) >= 0 && (close(kk-2) > supertrend(kk-2) && close(kk-1) <= supertrend(kk-1))
+    if supertrend(kk-2) > 0 && supertrend(kk-1) > 0 &&(close(kk-2) > supertrend(kk-2) && close(kk-1) <= supertrend(kk-1))
     
         % no running trade
         if (runningTrade(kk-1) == 0) % if currently no running trade
@@ -298,7 +311,7 @@ for kk = param1+1 : length(data) % cicle through all candles of current data
             
     
     % LONG CROSSING OCCURED ON YESTERDAYS CLOSE
-    elseif supertrend(kk-2) >= 0 && (close(kk-2) < supertrend(kk-2) && close(kk-1) >= supertrend(kk-1))
+    elseif supertrend(kk-2) > 0 && supertrend(kk-1) > 0 && (close(kk-2) < supertrend(kk-2) && close(kk-1) >= supertrend(kk-1))
             
         % no running trade
         if (runningTrade(kk-1) == 0) % if currently no running trade
@@ -326,38 +339,68 @@ for kk = param1+1 : length(data) % cicle through all candles of current data
             runningTrade(kk) = 0;
         
         end    
-    end    
-end
-
-%% KEY FIGURES 
-
-totalPL = sum(profitLoss); 
-
-% Clean profitLoss array from zeros
-cleanPL = profitLoss; % use new array for further changes -> profitLoss array should not be changed
-cleanPL(find(cleanPL == 0)) = []; % delete value if value = 0
-
-% Calculate cleanEquity curve with clean profitLoss array
-cleanEquity(1) = initBalance; % first vaule = initial account balance
-
-for kk = 2:length(cleanPL)
+    end   
     
-        % calculate equity curve by adding up each profit/loss to current account balance
-        cleanEquity(kk,1) = cleanEquity(kk-1) + cleanPL(kk); %[€]        
+    % if last datapoint reached -> close all running trades    
+    if kk == length(data)
 
+        if runningTrade(kk-1) == -1
+            exitShort(kk);
+            
+        elseif runningTrade(kk-1) == 1
+            exitLong(kk);
+        
+        end
+    end
 end
 
-% Calculate maximum drawdown of the equity-curve - use internal matlab function maxdrawdown()
-maxDrawdown = maxdrawdown(cleanEquity);
+    %% KEY FIGURES 
 
-% Calculate ProfitDrawdownRatio
-pdRatio = totalPL / maxDrawdown;
+    if param1 == 5 && param2 == 5
+        x=0;
+    end
+    
+        totalPL = sum(profitLoss); 
 
-% Plot the equity curve - only for testing and control of each equity graph
-% plot(cleanEquity);  
+        % Clean profitLoss array from zeros
+        cleanPL = profitLoss; % use new array for further changes -> profitLoss array should not be changed
+        cleanPL(find(cleanPL == 0)) = []; % delete value if value = 0
 
+        % Calculate cleanEquity curve with clean profitLoss array
+        cleanEquity(1) = initBalance; % first vaule = initial account balance
+        
+        if length(cleanPL) == 0 % no trade was computed
+            maxDrawdown = NaN;
+            pdRatio = NaN;
+            
+        elseif length(cleanPL) == 1 % only one trade was computed
+            cleanEquity(2) = cleanEquity(1) + cleanPL(1);
+            maxDrawdown = NaN;
+            pdRatio = NaN;
+        
+        else % more than 1 trades were computed
+            
+            for kk = 1:length(cleanPL)
+
+                    % calculate equity curve by adding up each profit/loss to current account balance
+                    cleanEquity(kk+1,1) = cleanEquity(kk) + cleanPL(kk); %[€]        
+
+            end
+
+            % Calculate maximum drawdown of the equity-curve - use internal matlab function maxdrawdown()
+            maxDrawdown = maxdrawdown(cleanEquity) * 100;
+
+            % Calculate ProfitDrawdownRatio
+            if maxDrawdown ~= 0
+               
+                pdRatio = totalPL / maxDrawdown;
+            
+            else
+                pdRatio = NaN;
+            
+            end
+        end     
 end
-
 
 %% DEFAULT INPUT
 
@@ -370,7 +413,7 @@ end
 
 % Positionsgröße aktuell 1% des Startkapitals (statische Positionsgröße) -> ok oder ändern?
 % Welche Logik für den StopLoss / TakeProfit verwenden?
-% soll jede verwendete Variable zuerst einmal mit 0 o der zeros() initialisiert werden?
+% soll jede verwendete Variable zuerst einmal mit 0 oder zeros() initialisiert werden?
 % Welche Metrics/statistics sollen noch berechnet werden?
 % WalkForwardEfficiency berechnen? Siehe Robert Pardo
 
