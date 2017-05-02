@@ -128,10 +128,23 @@ else %no input error -> run code
     if (graphics == 1)
         
         figure;
-        plot(ooS_Equity); % ooS_Equity = each ooS_equity combined
-        figure;
-        plot(iS_Equity);
-        
+            % IN SAMPLE PLOTTING
+            s1 = subplot(1,2,1);
+                hold on                
+                    plot(iS_Equity, 'k'); 
+                    title(s1, 'IN SAMPLE');  
+                    ylabel(s1, 'Account Balance [€]');
+                    xlabel(s1, '# of Trades');
+                hold off
+            
+            % OUT OF SAMPLE PLOTTING
+            s2 = subplot(1,2,2); 
+                hold on                
+                    plot(ooS_Equity, 'r'); % ooS_Equity = each ooS_equity combined
+                    title(s2, 'OUT OF SAMPLE');
+                    ylabel(s2, 'Account Balance [€]');
+                    xlabel(s2, '# of Trades');
+                hold off  
     end
     
 %---------------------------------------------------------------------------
