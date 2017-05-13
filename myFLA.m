@@ -1,7 +1,4 @@
-function [] = myFLA(Instrument, totalDataSize, windowLenght_iS, windowLength_ooS, graphics)
-
-clear global; % clear all global variables from previous runs
-    
+function [] = myFLA(Instrument, totalDataSize, windowLenght_iS, windowLength_ooS, graphics)   
 %% INPUT PARAMETER
 % Instrument        = which data to load, e.g. 'EURUSD'
 % totalDataSize     = measured from the first data point, how much data
@@ -24,134 +21,170 @@ clear global; % clear all global variables from previous runs
 %% CHECK FOR CORRECT INPUT
 
 if graphics > 1
-    error_graphics = 'Please check your input parameters, graphics must not be greater than 1'
+    errordlg('Please check your input parameters, graphics must not be greater than 1');
+    disp('Error, see messagebox!');
+    return;
+end
     
-elseif graphics < 0
-    error_graphics = 'Please check your input parameters, graphics must not be less than 1'
+if graphics < 0
+    errordlg('Please check your input parameters, graphics must not be less than 1');
+    disp('Error, see messagebox!');
+    return;
+end
     
-elseif (windowLenght_iS + windowLength_ooS) > totalDataSize
-    error_windowlength = 'Please check your input parameters, in-sample + out-of-sample window length must not exceed totalDataSize'
-    
+if (windowLenght_iS + windowLength_ooS) > totalDataSize
+    errordlg('Please check your input parameters, in-sample + out-of-sample window length must not exceed totalDataSize')
+    disp('Error, see messagebox!');
+    return;
+end
+
 % elseif totalDataSize > size(data) - windowLenght_iS - windowLength_ooS
 %     error_totalDataSize = 'Please check your input parameters, totalDataSize is greater than available data in the price-data file'
 %     availableData = (length(data) - windowLenght_iS - windowLength_ooS)
-    
-else %no input error -> run code   
-    
-    %% INITIALIZE VECTORS/ARRAYS/VARIABLES
-    
-    % global to be available in all functions        
-    global initBalance;    
-    
-    count_walks = 0; % count how many forward-walks are performed 
-    ooS_ProfitLoss = NaN;
-    iS_ProfitLoss = NaN;
-    ooS_Equity = 0; % array with all generated PL
-    initBalance = 10000; % Initial account balance
-    
-    ooS_pdRatios = 0;
-    iS_pdRatios = 0;
-    
-    %----------------------------------------------------------------------
-    
-    %% WALK FORWARD
-    
-    % Assign values for the first walk
-    startDateIndex = 1;
-    endDateIndex = 1+totalDataSize;
-    
-    %==================== MAJOR CALCULATION ===============================
-    
-    % data is moved each walk by the size windowLength_ooS
-    for date = startDateIndex : windowLength_ooS : endDateIndex
-        
-        count_walks = count_walks + 1;
-        
+      
+%% INITIALIZE VECTORS/ARRAYS/VARIABLES
+
+% global to be available in all functions        
+global initBalance;    
+global riskPercent;
+
+initBalance = 10000; % Initial buying power
+riskPercent = 0.05; % Invest x% of the account balance per trade
+
+iS_pdRatios = 0;
+ooS_pdRatios = 0;
+iS_ProfitLoss = NaN; 
+ooS_ProfitLoss = NaN;
+ooS_Equity = 0; % array with all generated PL
+count_walks = 0; % count how many forward-walks are performed 
+
+%% WALK FORWARD
+
+% Assign values for the first walk
+startDateIndex = 1;
+endDateIndex = 1+totalDataSize;
+
+%==================== MAJOR CALCULATION ===============================
+
+% data is moved each walk by the size windowLength_ooS
+for date = startDateIndex : windowLength_ooS : endDateIndex
+
+    count_walks = count_walks + 1;
+
 %         ---------------------
 %         DEBUGGING
 %         if count_walks == 5        
 %             x = 0;            
 %         end
 %         ---------------------
-        
-        % Save start and end-dates for later print to command window
-        startDate_iS(count_walks,:) = dates(date); 
-        endDate_iS(count_walks,:) = dates(date + windowLenght_iS);
-        startDate_ooS(count_walks,:) = dates(date + windowLenght_iS + 1);
-        endDate_ooS(count_walks,:) = dates(date + windowLenght_iS + 1 + windowLength_ooS);
-    
-        % Define the dataset for all further calculations
-        data_iS = data(date : date + windowLenght_iS, :);
-        data_ooS = data(date + windowLenght_iS + 1 : date + windowLenght_iS + 1 + windowLength_ooS, :);
-        
-        % =================================================================
-        % run in-sample optimization
-        [optParam1, optParam2] = runOptimizer_iS(5, 15, 1, 5, 1, 1, data_iS);
-        [iS_pdRatio, iS_cleanPL] = runBacktest(optParam1, optParam2, data_iS); % for later comparison to ooS-pdRatio
-                   
-        % run out-of-sample backtest        
-        [ooS_pdRatio, ooS_cleanPL] = runBacktest(optParam1, optParam2, data_ooS);    
-        % mySuperTrend(data_ooS, optParam1, optParam2, 1); % for testing purpose - to see on which chart is traded
-        % =================================================================
-        
-        % Save the results in vectors for later display in command window                     
-        optParams(count_walks,:) = [optParam1, optParam2];
-        ooS_pdRatios(count_walks,:) = ooS_pdRatio;  
-        iS_pdRatios(count_walks,:) = iS_pdRatio;
-        
-        % Calculate the combined forwardLooking-P&L by combining each out-of-sample P&L vector   
-        ooS_ProfitLoss = vertcat(ooS_ProfitLoss, ooS_cleanPL);
-        iS_ProfitLoss = vertcat(iS_ProfitLoss, iS_cleanPL);
-    end
-    
-    % calculate final equity curve by adding up each profit/loss to current account balance
-    ooS_Equity(1) = initBalance; % first data point = initial account balance
-    iS_Equity(1) = initBalance; % first data point = initial account balance
-    for kk = 2:length(ooS_ProfitLoss)
-            
-        ooS_Equity(kk,1) = ooS_Equity(kk-1) + ooS_ProfitLoss(kk); %[€]         
-        iS_Equity(kk,1) = iS_Equity(kk-1) + iS_ProfitLoss(kk); %[€]
 
+    % ONLY FOR PRINTING TO THE COMMAND WINDOW
+    startDate_iS(count_walks,:) = dates(date); 
+     
+    if (date + windowLenght_iS > length(dates)) % if endDate_iS exceeds the array size
+        msgbox('ATTENTION! data_iS exceeds the size of the dataseries, no data for walk forward left -> end');
+        count_walks = count_walks - 1; % Walk is not completely done
+        break; % exit the loop
+    else
+        endDate_iS(count_walks,:) = dates(date + windowLenght_iS); % endDate_ooS does not exceed the array size
     end
     
-    % Print to command window for controlling dates
-    count_walks
-    startDate_iS
-    endDate_iS
-    startDate_ooS
-    endDate_ooS
-    optParams   
-    iS_pdRatios
-    ooS_pdRatios
-    
-    % Plot the combined FLA-Equity curve
-    if (graphics == 1)
-        
-        figure;
-            % IN SAMPLE PLOTTING
-            s1 = subplot(1,2,1);
-                hold on                
-                    plot(iS_Equity, 'k'); 
-                    title(s1, 'IN SAMPLE');  
-                    ylabel(s1, 'Account Balance [€]');
-                    xlabel(s1, '# of Trades');
-                hold off
-            
-            % OUT OF SAMPLE PLOTTING
-            s2 = subplot(1,2,2); 
-                hold on                
-                    plot(ooS_Equity, 'r'); % ooS_Equity = each ooS_equity combined
-                    title(s2, 'OUT OF SAMPLE');
-                    ylabel(s2, 'Account Balance [€]');
-                    xlabel(s2, '# of Trades');
-                hold off  
+    if (date + windowLenght_iS + 1 > length(dates)) % if startDate_ooS exceeds the array size
+        msgbox('ATTENTION! data_iS exceeds the size of the dataseries, no data for walk forward left -> end');  
+        count_walks = count_walks -1;
+        break; % exit the loop
+    else
+        startDate_ooS(count_walks,:) = dates(date + windowLenght_iS + 1); % endDate_ooS does not exceed the array size
     end
     
-%---------------------------------------------------------------------------
+    if (date + windowLenght_iS + 1 + windowLength_ooS > length(dates)) % if endDate_ooS exceeds the array size
+        endDate_ooS(count_walks,:) = dates(length(dates));
+        msgbox('ATTENTION! endDate_ooS exceeds the dimension of the dataseries and was trimmed to fit to the array-size');        
+    else
+        endDate_ooS(count_walks,:) = dates(date + windowLenght_iS + 1 + windowLength_ooS); % endDate_ooS does not exceed the array size
+    end
+
+    % Define the dataset for all further calculations
     
+    data_iS = data(date : date + windowLenght_iS, :); % no data check needed, already done above
+    
+    if (date + windowLenght_iS + 1 + windowLength_ooS > length(dates)) % if endDate_ooS exceeds the array size
+        data_ooS = data(date + windowLenght_iS + 1 : length(dates)-1, :);
+        disp('data_ooS was trimmed to fit the array size');        
+    else
+        data_ooS = data(date + windowLenght_iS + 1 : date + windowLenght_iS + 1 + windowLength_ooS, :); % endDate_ooS does not exceed the array size
+    end
+
+    % =================================================================
+    % run in-sample optimization
+    [optParam1, optParam2] = runOptimizer_iS(5, 15, 1, 5, 1, 1, data_iS);
+    [iS_pdRatio, iS_cleanPL] = runBacktest(optParam1, optParam2, data_iS); % for later comparison to ooS-pdRatio
+
+    % run out-of-sample backtest        
+    [ooS_pdRatio, ooS_cleanPL] = runBacktest(optParam1, optParam2, data_ooS);    
+    % mySuperTrend(data_ooS, optParam1, optParam2, 1); % for testing purpose - to see on which chart is traded
+    % =================================================================
+
+    % Save the results in vectors for later display in command window                     
+    optParams(count_walks,:) = [optParam1, optParam2];
+    ooS_pdRatios(count_walks,:) = ooS_pdRatio;  
+    iS_pdRatios(count_walks,:) = iS_pdRatio;
+
+    % Calculate the combined forwardLooking-P&L by combining each out-of-sample P&L vector   
+    ooS_ProfitLoss = vertcat(ooS_ProfitLoss, ooS_cleanPL);
+    iS_ProfitLoss = vertcat(iS_ProfitLoss, iS_cleanPL);
 end
 
+% calculate final equity curve by adding up each profit/loss to current account balance
+ooS_Equity(1) = initBalance; % first data point = initial account balance
+iS_Equity(1) = initBalance; % first data point = initial account balance
+
+for kk = 2:length(ooS_ProfitLoss)
+
+    ooS_Equity(kk,1) = ooS_Equity(kk-1) + ooS_ProfitLoss(kk); %[€]               
+
 end
+
+for kk = 2:length(iS_ProfitLoss)
+
+    iS_Equity(kk,1) = iS_Equity(kk-1) + iS_ProfitLoss(kk); %[€]
+
+end
+
+% Print to command window for controlling dates
+count_walks
+startDate_iS
+endDate_iS
+startDate_ooS
+endDate_ooS
+optParams   
+iS_pdRatios
+ooS_pdRatios
+
+% Plot the combined FLA-Equity curve
+if (graphics == 1)
+
+    figure;
+        % IN SAMPLE PLOTTING
+        s1 = subplot(1,2,1);
+            hold on                
+                plot(iS_Equity, 'k'); 
+                title(s1, 'IN SAMPLE');  
+                ylabel(s1, 'Account Balance [€]');
+                xlabel(s1, '# of Trades');
+            hold off
+
+        % OUT OF SAMPLE PLOTTING
+        s2 = subplot(1,2,2); 
+            hold on                
+                plot(ooS_Equity, 'r'); % ooS_Equity = each ooS_equity combined
+                title(s2, 'OUT OF SAMPLE');
+                ylabel(s2, 'Account Balance [€]');
+                xlabel(s2, '# of Trades');
+            hold off  
+end
+end
+
 
 function [optParam1, optParam2] = runOptimizer_iS(lowerLimit1, upperLimit1, lowerLimit2, upperLimit2, stepParam1, stepParam2, data)
 %% INPUT PARAMETER
@@ -220,36 +253,24 @@ close = data(:,4);
 
 %% INITIALIZE 
 
-% global variables to be able to access them in all following functions
 global initBalance; 
 global riskPercent;
-global positionSize;
 
-global profitLoss;
-global runningTrade;
-
-global entryTimeShort;
-global entryTimeLong;
-global entryPriceShort;
-global entryPriceLong;
-
-global exitCounterShort;
-global exitCounterLong;
-global tradeCounterShort;
-global tradeCounterLong;
-global tradeDurationLong;
-global tradeDurationShort;
-
-% clear variables from previous runs
-clear profitLoss;
-clear runningTrade;
-clear tradeDurationLong;
-clear tradeDurationShort;
-
-% Assign first values
-profitLoss(1) = 0;
+positionSize = [];
+profitLoss = 0;
 runningTrade(1:param1, :) = 0; % set first values of the array to 0 -> no running trade at the beginning
-riskPercent = 0.05; % Percentage value of account size to be risked per trade
+
+entryTimeShort = [];
+entryTimeLong = [];
+entryPriceShort = [];
+entryPriceLong = [];
+
+exitCounterShort = [];
+exitCounterLong = [];
+tradeCounterShort = [];
+tradeCounterLong = [];
+tradeDurationLong = [];
+tradeDurationShort = [];
 
 %% DECLARE TRADING FUNCTIONS
 
@@ -258,7 +279,7 @@ function [] = enterShort(now)
             runningTrade(now) = -1;
             entryTimeShort = (now); % save time index of entry signal
             entryPriceShort = open(now); % save entry price
-            positionSize = initBalance * riskPercent; % risk 1% of initial account size
+            positionSize = (initBalance * riskPercent) / open(now); % how many units to buy for given risk parameter
             tradeCounterShort = tradeCounterShort + 1; % count how many short trades      
 
 end
@@ -269,7 +290,7 @@ function [] = enterLong(now)
             runningTrade(now) = 1;
             entryTimeLong = now; % save time index of entry signal
             entryPriceLong = open(now); % save entry price
-            positionSize = initBalance * riskPercent; % risk 1% of initial account size
+            positionSize = (initBalance * riskPercent) / open(now); % how many units to buy for given risk parameter
             tradeCounterLong = tradeCounterLong + 1; % count how many short trades   
 
 end
@@ -295,7 +316,7 @@ function [] = exitLong(now)
             
         runningTrade(now) = 0;
         tradeDurationLong(now) = (now) - (entryTimeLong - 1); % calculate number of bars of trade duration (for further statistics)
-        profitLoss(now,:) = (open(now) - entryPriceLong) * positionSize; % calculate realized profit/loss
+        profitLoss(now,:) = (open(now,:) - entryPriceLong) * positionSize; % calculate realized profit/loss
         exitCounterLong = exitCounterLong + 1; % count how many short trades are stopped out
     
     end
@@ -379,6 +400,7 @@ end
     %% KEY FIGURES 
     
     totalPL = sum(profitLoss); 
+    totalPL_percent = (totalPL / initBalance) * 100;
 
     % Clean profitLoss array from zeros
     cleanPL = profitLoss; % use new array for further changes -> profitLoss array should not be changed
@@ -412,7 +434,7 @@ end
         % Calculate ProfitDrawdownRatio
         if maxDrawdown ~= 0
 
-            pdRatio = totalPL / maxDrawdown;
+            pdRatio = totalPL_percent / maxDrawdown;
 
         else
             pdRatio = NaN;
