@@ -48,7 +48,7 @@ end
 global initBalance;    
 global riskPercent;
 
-initBalance = 10000; % Initial buying power
+initBalance = 10000; % Initial balance
 riskPercent = 0.05; % Invest x% of the account balance per trade
 
 iS_pdRatios = 0;
@@ -79,8 +79,15 @@ for date = startDateIndex : windowLength_ooS : endDateIndex
 %         ---------------------
 
     % ONLY FOR PRINTING TO THE COMMAND WINDOW
-    startDate_iS(count_walks,:) = dates(date); 
-     
+    
+    if (date > length(dates)) % if startDate_iS exceeds the array size
+        msgbox('ATTENTION! data_iS exceeds the size of the dataseries, no data for walk forward left -> end');
+        count_walks = count_walks - 1; % Walk is not completely done
+        break; % exit the loop
+    else
+        startDate_iS(count_walks,:) = dates(date);  % startDate_iS does not exceed the array size
+    end
+    
     if (date + windowLenght_iS > length(dates)) % if endDate_iS exceeds the array size
         msgbox('ATTENTION! data_iS exceeds the size of the dataseries, no data for walk forward left -> end');
         count_walks = count_walks - 1; % Walk is not completely done
@@ -428,7 +435,7 @@ end
 
         end
 
-        % Calculate maximum drawdown of the equity-curve - use internal matlab function maxdrawdown()
+        % Calculate maximum drawdown of the equity-curve - use internal matlab function maxdrawdown(), output = % value
         maxDrawdown = maxdrawdown(cleanEquity) * 100;
 
         % Calculate ProfitDrawdownRatio
