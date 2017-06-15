@@ -11,11 +11,20 @@ function [supertrend, trend] = mySuperTrend(data, periodATR, multiplier, graphic
 %% CHECK FOR CORRECT INPUT
 
 if graphics > 1
-    error_graphics = 'Please check your input parameter, graphics must not be greater than 1'
-elseif graphics < 0 
-    error_graphics = 'Please check your input parameter, graphics must not be less than 1'
-else %no input error -> run code
+    msgbox('SUPERTREND: Please check your input parameter, graphics must not be greater than 1');
+    return;
     
+elseif graphics < 0 
+    msgbox('SUPERTREND: Please check your input parameter, graphics must not be less than 1');
+    return;
+    
+elseif periodATR > length(data)
+    msgbox('SUPERTREND: Not enough data - ATR period is greater than available data')
+    supertrend = NaN;
+    trend = NaN;
+    return;
+
+end
 %--------------------------------------------------------------------------
 
 %% DATA PREPARATION
@@ -65,6 +74,11 @@ end
 % -------------------------------------------------------------------------
 
 %% AVERAGE TRUE RANGE
+%debug
+if (periodATR == 30 & multiplier == 5.5)
+    x=0;    
+end
+
 
 atr(periodATR,:) = sum(true_range(1:periodATR)) / periodATR; %first value = simple MA of true range 
 offset(periodATR,:) = atr(periodATR) * multiplier;
@@ -175,8 +189,6 @@ for ii = periodATR+2:length(close) % Start ii from 16 -> need values from ii=15 
 end
 
 % -------------------------------------------------------------------------
-
-end
 
 supertrend_draw_dn(1:periodATR+1) = NaN; 
 supertrend_draw_up(1:periodATR+1) = NaN;

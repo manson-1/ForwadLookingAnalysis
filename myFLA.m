@@ -14,8 +14,8 @@ function [] = myFLA(Instrument, totalDataSize, windowLenght_iS, windowLength_ooS
 % read price data and dates
 [data txt] = xlsread(Instrument);
 
-% convert txt-dates to datetime variables
- dates = datetime(txt(2:end,1));
+% save dates in array
+dates = txt(2:end,1);
 %----------------------------------------------------------------------
     
 %% CHECK FOR CORRECT INPUT
@@ -44,12 +44,24 @@ end
       
 %% INITIALIZE VECTORS/ARRAYS/VARIABLES
 
-% global to be available in all functions        
-global initBalance;    
-global riskPercent;
+% global to be available in all functions          
+global investment;
+      
+% ======================= USER INPUT ==============================
 
-initBalance = 10000; % Initial balance
-riskPercent = 0.05; % Invest x% of the account balance per trade
+investment = 10000; % amount of $ to invest per trade = account size -> 100% of acc size are invested in the market all the time
+
+% Params for ATR optimization
+lowLim_ATR = 10;
+upLim_ATR = 50;
+step_ATR = 1;
+
+% Params for multiplier optimization
+lowLim_mult = 1;
+upLim_mult = 7;
+step_mult = 1;
+
+% =================================================================
 
 iS_pdRatios = 0;
 ooS_pdRatios = 0;
@@ -73,9 +85,9 @@ for date = startDateIndex : windowLength_ooS : endDateIndex
 
 %         ---------------------
 %         DEBUGGING
-%         if count_walks == 5        
-%             x = 0;            
-%         end
+        if count_walks == 8        
+            x = 0;            
+        end
 %         ---------------------
 
     % ONLY FOR PRINTING TO THE COMMAND WINDOW
@@ -122,14 +134,16 @@ for date = startDateIndex : windowLength_ooS : endDateIndex
         data_ooS = data(date + windowLenght_iS + 1 : date + windowLenght_iS + 1 + windowLength_ooS, :); % endDate_ooS does not exceed the array size
     end
 
-    % =================================================================
+    % ===================== WALK FORWARD ==============================
+    
     % run in-sample optimization
-    [optParam1, optParam2] = runOptimizer_iS(5, 15, 1, 5, 1, 1, data_iS);
+    [optParam1, optParam2] = runOptimizer_iS(lowLim_ATR, upLim_ATR, step_ATR, lowLim_mult, upLim_mult, step_mult, data_iS);
     [iS_pdRatio, iS_cleanPL] = runBacktest(optParam1, optParam2, data_iS); % for later comparison to ooS-pdRatio
 
     % run out-of-sample backtest        
     [ooS_pdRatio, ooS_cleanPL] = runBacktest(optParam1, optParam2, data_ooS);    
     % mySuperTrend(data_ooS, optParam1, optParam2, 1); % for testing purpose - to see on which chart is traded
+    
     % =================================================================
 
     % Save the results in vectors for later display in command window                     
@@ -143,8 +157,8 @@ for date = startDateIndex : windowLength_ooS : endDateIndex
 end
 
 % calculate final equity curve by adding up each profit/loss to current account balance
-ooS_Equity(1) = initBalance; % first data point = initial account balance
-iS_Equity(1) = initBalance; % first data point = initial account balance
+ooS_Equity(1) = investment; % first data point = initial account balance = investment size
+iS_Equity(1) = investment; % first data point = initial account balance = investment size
 
 for kk = 2:length(ooS_ProfitLoss)
 
@@ -193,7 +207,7 @@ end
 end
 
 
-function [optParam1, optParam2] = runOptimizer_iS(lowerLimit1, upperLimit1, lowerLimit2, upperLimit2, stepParam1, stepParam2, data)
+function [optParam1, optParam2] = runOptimizer_iS(lowerLimit1, upperLimit1, stepParam1, lowerLimit2, upperLimit2, stepParam2, data)
 %% INPUT PARAMETER
 
 % lowerLimit1, lowerLimit2 = lower limit for optimization of parameter 1 / parameter 2
@@ -201,16 +215,23 @@ function [optParam1, optParam2] = runOptimizer_iS(lowerLimit1, upperLimit1, lowe
 % stepParam1, setpParam2   = step forward interval for optimizing parameter 1 / parameter 2
 % param1, param2           = input parameter 1 / parameter 2 for the trading strategy
 
+% For Supertrend Trading:
+% -- Param1 = ATR
+% -- Param2 = Multiplier
+
 % Initialize arrays with dimensions according to input limits
-iS_pdRatio = zeros(upperLimit1, upperLimit2- lowerLimit2+1);
-iS_pdRatio(1:lowerLimit1-1, 1:upperLimit2) = NaN; % set not needed values to NaN
+%iS_pdRatio = zeros(upperLimit1, upperLimit2- lowerLimit2+1);
+%iS_pdRatio(1:lowerLimit1-1, 1:upperLimit2) = NaN; % set not needed values to NaN
 
 % cicle through all parameter combinations and create a heatmap
-for ii = lowerLimit1 : stepParam1 : upperLimit1 %cicle through each column
-    for jj = lowerLimit2 : stepParam2 : upperLimit2 %cicle through each row
+for ii = (lowerLimit1 / stepParam1) : (upperLimit1 / stepParam1) % cicle through each column = ATR, divisions necc. for steps < 1
+    for jj = (lowerLimit2 / stepParam2) : (upperLimit2 / stepParam2) % cicle through each row = Multiplier, divisions necc. for steps < 1
+        
+        currATR = ii * stepParam1; % convert back to use as input param for trading 
+        currMult = jj * stepParam2; % convert back to use as input param for trading
         
         % trade on current data set with ii and jj as input parameter, pd_ratio is returned and saved for each walk       
-        pdRatio = trade_strategy(ii, jj, data); 
+        pdRatio = trade_strategy(currATR, currMult, data); 
         iS_pdRatio(ii,jj) = pdRatio; % save result in array
         
     end
@@ -220,8 +241,8 @@ end
 [maximumTemp, indexTemp] = max(iS_pdRatio); % detect max of each column and save as vector
 [max_, ind] = max(maximumTemp); % detect max of the above saved maximum-vector
 
-optParam1 = indexTemp(ind);
-optParam2 = ind;
+optParam1 = indexTemp(ind) * stepParam1;
+optParam2 = ind * stepParam2;
 
 end
 
@@ -254,16 +275,20 @@ function [pdRatio, cleanPL] = trade_strategy(param1, param2, data)
 % receive array with supertrend data and trend-direction (not necessary) of data
 [supertrend, trend] = mySuperTrend(data, param1, param2, 0); % call SuperTrend calculation and trading, graphics set to 0 -> no drawing
 
+if (isnan(supertrend) | isnan(trend))
+    pdRatio = NaN;
+    cleanPL = NaN;
+    return;
+end
+
 %% PREPARE DATA
 open = data(:,1);
 close = data(:,4);
 
 %% INITIALIZE 
 
-global initBalance; 
-global riskPercent;
+global investment;
 
-positionSize = [];
 profitLoss = 0;
 runningTrade(1:param1, :) = 0; % set first values of the array to 0 -> no running trade at the beginning
 
@@ -286,7 +311,6 @@ function [] = enterShort(now)
             runningTrade(now) = -1;
             entryTimeShort = (now); % save time index of entry signal
             entryPriceShort = open(now); % save entry price
-            positionSize = (initBalance * riskPercent) / open(now); % how many units to buy for given risk parameter
             tradeCounterShort = tradeCounterShort + 1; % count how many short trades      
 
 end
@@ -297,7 +321,6 @@ function [] = enterLong(now)
             runningTrade(now) = 1;
             entryTimeLong = now; % save time index of entry signal
             entryPriceLong = open(now); % save entry price
-            positionSize = (initBalance * riskPercent) / open(now); % how many units to buy for given risk parameter
             tradeCounterLong = tradeCounterLong + 1; % count how many short trades   
 
 end
@@ -309,7 +332,7 @@ function [] = exitShort(now)
             
         runningTrade(now) = 0;
         tradeDurationShort(now) = (now) - (entryTimeShort - 1); % calculate number of bars of trade duration (for further statistics)
-        profitLoss(now,:) = (entryPriceShort - open(now,:)) * positionSize; % calculate realized profit/loss
+        profitLoss(now,:) = (entryPriceShort - open(now,:)) * investment; % calculate P/L in USD
         exitCounterShort = exitCounterShort + 1; % count how many short trades are stopped out
    
     end
@@ -323,14 +346,14 @@ function [] = exitLong(now)
             
         runningTrade(now) = 0;
         tradeDurationLong(now) = (now) - (entryTimeLong - 1); % calculate number of bars of trade duration (for further statistics)
-        profitLoss(now,:) = (open(now,:) - entryPriceLong) * positionSize; % calculate realized profit/loss
+        profitLoss(now,:) = (open(now,:) - entryPriceLong) * investment; % calculate P/L in USD
         exitCounterLong = exitCounterLong + 1; % count how many short trades are stopped out
     
     end
     
 end
 
-        
+
 %% SUPERTREND TRADING
 
 for kk = param1+1 : length(data) % cicle through all candles of current data
@@ -407,14 +430,14 @@ end
     %% KEY FIGURES 
     
     totalPL = sum(profitLoss); 
-    totalPL_percent = (totalPL / initBalance) * 100;
+    totalPL_percent = (totalPL / investment) * 100;
 
     % Clean profitLoss array from zeros
     cleanPL = profitLoss; % use new array for further changes -> profitLoss array should not be changed
     cleanPL(find(cleanPL == 0)) = []; % delete value if value = 0
 
     % Calculate cleanEquity curve with clean profitLoss array
-    cleanEquity(1) = initBalance; % first vaule = initial account balance
+    cleanEquity(1) = investment; % first vaule = initial account balance
 
     % Check how many datapoints available
     if length(cleanPL) == 0 % no trade was computed
@@ -457,11 +480,7 @@ end
 % myFLA('EURGBP', 2000, 518, 259, 0)
 % =========================================================================
 
-%% FRAGEN:
-
-% Positionsgröße aktuell 1% des Startkapitals (statische Positionsgröße) -> ok oder ändern?
-% Welche Logik für den StopLoss / TakeProfit verwenden?
-% soll jede verwendete Variable zuerst einmal mit 0 oder zeros() initialisiert werden?
-% Welche Metrics/statistics sollen noch berechnet werden?
-% WalkForwardEfficiency berechnen? Siehe Robert Pardo p.238/239
+% tic
+% myFLA('EURUSD', 2000, 1000, 259, 1)
+% toc
 
