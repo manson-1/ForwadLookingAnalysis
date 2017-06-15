@@ -74,11 +74,13 @@ end
 % -------------------------------------------------------------------------
 
 %% AVERAGE TRUE RANGE
-%debug
-if (periodATR == 30 & multiplier == 5.5)
-    x=0;    
-end
 
+% ----------------------------------
+%     Debugging
+%     if (periodATR == 30 & multiplier == 5.5)
+%         x=0;    
+%     end
+% ----------------------------------
 
 atr(periodATR,:) = sum(true_range(1:periodATR)) / periodATR; %first value = simple MA of true range 
 offset(periodATR,:) = atr(periodATR) * multiplier;

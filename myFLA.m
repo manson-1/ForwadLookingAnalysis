@@ -1,12 +1,12 @@
 function [] = myFLA(Instrument, totalDataSize, windowLenght_iS, windowLength_ooS, graphics)   
 %% INPUT PARAMETER
-% Instrument        = which data to load, e.g. 'EURUSD'
-% totalDataSize     = measured from the first data point, how much data
-%                   should be taken into calculation for the consecutive walks.
-%                   FLA stops when end of totalWindowSize is reached
-% windowLenght_iS   = window length of data for in-sample optimization, measured in trading days, default = 518 
-% windowLength_ooS  = window length of data for out-of-sample backtest measured in trading days, default = 259 
-% if graphics       == 1 plotting is activated
+    % Instrument        = which data to load, e.g. 'EURUSD'
+    % totalDataSize     = measured from the first data point, how much data
+    %                   should be taken into calculation for the consecutive walks.
+    %                   FLA stops when end of totalWindowSize is reached
+    % windowLenght_iS   = window length of data for in-sample optimization, measured in trading days, default = 518 
+    % windowLength_ooS  = window length of data for out-of-sample backtest measured in trading days, default = 259 
+    % if graphics       == 1 plotting is activated
 %--------------------------------------------------------------------------
 
 %% DATA PREPARATION
@@ -37,10 +37,6 @@ if (windowLenght_iS + windowLength_ooS) > totalDataSize
     disp('Error, see messagebox!');
     return;
 end
-
-% elseif totalDataSize > size(data) - windowLenght_iS - windowLength_ooS
-%     error_totalDataSize = 'Please check your input parameters, totalDataSize is greater than available data in the price-data file'
-%     availableData = (length(data) - windowLenght_iS - windowLength_ooS)
       
 %% INITIALIZE VECTORS/ARRAYS/VARIABLES
 
@@ -59,7 +55,7 @@ step_ATR = 1;
 % Params for multiplier optimization
 lowLim_mult = 1;
 upLim_mult = 7;
-step_mult = 1;
+step_mult = 0.5;
 
 % =================================================================
 
@@ -85,9 +81,9 @@ for date = startDateIndex : windowLength_ooS : endDateIndex
 
 %         ---------------------
 %         DEBUGGING
-        if count_walks == 8        
-            x = 0;            
-        end
+%         if count_walks == 8        
+%             x = 0;            
+%         end
 %         ---------------------
 
     % ONLY FOR PRINTING TO THE COMMAND WINDOW
@@ -210,18 +206,17 @@ end
 function [optParam1, optParam2] = runOptimizer_iS(lowerLimit1, upperLimit1, stepParam1, lowerLimit2, upperLimit2, stepParam2, data)
 %% INPUT PARAMETER
 
-% lowerLimit1, lowerLimit2 = lower limit for optimization of parameter 1 / parameter 2
-% upperLimit1, upperLimit2 = upper limit for optimization of parameter 1 / parameter 2
-% stepParam1, setpParam2   = step forward interval for optimizing parameter 1 / parameter 2
-% param1, param2           = input parameter 1 / parameter 2 for the trading strategy
+    % lowerLimit1, lowerLimit2 = lower limit for optimization of parameter 1 / parameter 2
+    % upperLimit1, upperLimit2 = upper limit for optimization of parameter 1 / parameter 2
+    % stepParam1, setpParam2   = step forward interval for optimizing parameter 1 / parameter 2
+    % param1, param2           = input parameter 1 / parameter 2 for the trading strategy
 
-% For Supertrend Trading:
-% -- Param1 = ATR
-% -- Param2 = Multiplier
+    % For Supertrend Trading:
+    % -- Param1 = ATR
+    % -- Param2 = Multiplier
 
-% Initialize arrays with dimensions according to input limits
-%iS_pdRatio = zeros(upperLimit1, upperLimit2- lowerLimit2+1);
-%iS_pdRatio(1:lowerLimit1-1, 1:upperLimit2) = NaN; % set not needed values to NaN
+% Preallocate array with dimensions according to input limits
+iS_pdRatio = zeros(upperLimit1 / stepParam1, upperLimit2 / stepParam2);
 
 % cicle through all parameter combinations and create a heatmap
 for ii = (lowerLimit1 / stepParam1) : (upperLimit1 / stepParam1) % cicle through each column = ATR, divisions necc. for steps < 1
@@ -250,8 +245,8 @@ end
 function [pdRatio, cleanPL] = runBacktest(optParam1, optParam2, data)
 %% INPUT PARAMETER
 
-% optParam1 = in-sample optimized input parameter 1
-% optParam2 = in-sample optimized input parameter 2
+    % optParam1 = in-sample optimized input parameter 1
+    % optParam2 = in-sample optimized input parameter 2
 
 % trade strategy with optimal parameters calculated in the iS-test
 % use current data set //  pd_ratio and equity are returned and saved for each walk
@@ -266,10 +261,10 @@ end
 function [pdRatio, cleanPL] = trade_strategy(param1, param2, data)
 %% INPUT PARAMETER
 
-% For SuperTrend-Trading:
-% param1 = period ATR
-% param2 = multiplier
-% data = dataset to trade the strategy
+    % For SuperTrend-Trading:
+    % param1 = period ATR
+    % param2 = multiplier
+    % data = dataset to trade the strategy
 
 %% CALCULATE SUPERTREND
 % receive array with supertrend data and trend-direction (not necessary) of data
