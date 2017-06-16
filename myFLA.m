@@ -43,7 +43,7 @@ function [] = myFLA(Instrument, totalDataSize, windowLenght_iS, windowLength_ooS
     % global to be available in all functions          
     global investment;
 
-    % ======================= USER INPUT ==============================
+% ======================= USER INPUT ==============================
 
     investment = 10000; % amount of $ to invest per trade = account size -> 100% of acc size are invested in the market all the time
 
@@ -62,7 +62,7 @@ function [] = myFLA(Instrument, totalDataSize, windowLenght_iS, windowLength_ooS
     upLim_mult = 7;
     step_mult = 0.5;  
 
-    % =================================================================
+% =================================================================
 
     iS_pdRatios = 0;
     ooS_pdRatios = 0;
@@ -135,7 +135,7 @@ function [] = myFLA(Instrument, totalDataSize, windowLenght_iS, windowLength_ooS
             data_ooS = data(date + windowLenght_iS + 1 : date + windowLenght_iS + 1 + windowLength_ooS, :); % endDate_ooS does not exceed the array size
         end
 
-        % ===================== WALK FORWARD ==============================
+% ========================= WALK FORWARD ==============================
 
         % run in-sample optimization
         [optParam1, optParam2] = runOptimizer_iS(lowLim_ATR, upLim_ATR, step_ATR, lowLim_mult, upLim_mult, step_mult, data_iS);
@@ -145,7 +145,7 @@ function [] = myFLA(Instrument, totalDataSize, windowLenght_iS, windowLength_ooS
         [ooS_pdRatio, ooS_cleanPL, ooS_pdMsgCode] = runBacktest(optParam1, optParam2, data_ooS);    
         % mySuperTrend(data_ooS, optParam1, optParam2, 1); % for testing purpose - to see on which chart is traded
 
-        % =================================================================
+% =====================================================================
 
         % Save the results in vectors for later display in command window                     
         optParams(count_walks,:) = [optParam1, optParam2];
@@ -175,10 +175,11 @@ function [] = myFLA(Instrument, totalDataSize, windowLenght_iS, windowLength_ooS
 
     end
 
-    pdMsg = {'0 = calculation ok';'1 = no trade computed';'2 = only one trade computed';'3 = no negative trades - maxdrawdown = 0'};
+    % Create char-array for error-code definitions, plot to console in next section
+    pdMsg = {'pd_ratio error messages';'0 = calculation ok';'1 = no trade computed';'2 = only one trade computed';'3 = no negative trades - maxdrawdown = 0';'4 = SuperTrend could not be calculated'};
 
     % Print to command window for controlling dates
-    count_walks
+    count_walks;
     startDate_iS;
     endDate_iS;
     startDate_ooS;
@@ -186,7 +187,7 @@ function [] = myFLA(Instrument, totalDataSize, windowLenght_iS, windowLength_ooS
     optParams   
     iS_pdRatios
     ooS_pdRatios
-    pdMsg
+    disp(pdMsg)
 
     % Plot the combined FLA-Equity curve
     if (graphics == 1)
@@ -226,7 +227,7 @@ function [optParam1, optParam2] = runOptimizer_iS(lowerLimit1, upperLimit1, step
         % -- Param2 = Multiplier
 
     % Preallocate array with dimensions according to input limits
-    iS_pdRatio = zeros(upperLimit1 / stepParam1, upperLimit2 / stepParam2);
+    iS_pdRatio = NaN(upperLimit1 / stepParam1, upperLimit2 / stepParam2);
 
     % cicle through all parameter combinations and create a heatmap
     for ii = (lowerLimit1 / stepParam1) : (upperLimit1 / stepParam1) % cicle through each column = ATR, divisions necc. for steps < 1
@@ -234,10 +235,6 @@ function [optParam1, optParam2] = runOptimizer_iS(lowerLimit1, upperLimit1, step
 
             currATR = ii * stepParam1; % convert back to use as input param for trading 
             currMult = jj * stepParam2; % convert back to use as input param for trading
-
-            if (currATR == 1)
-                x=0;
-            end
 
             % trade on current data set with ii and jj as input parameter, pd_ratio is returned and saved for each walk       
             pdRatio = trade_strategy(currATR, currMult, data); 
@@ -290,9 +287,11 @@ function [pdRatio, cleanPL, pdMsgCode] = trade_strategy(param1, param2, data)
     % receive array with supertrend data and trend-direction (not necessary) of data
     [supertrend, trend] = mySuperTrend(data, param1, param2, 0); % call SuperTrend calculation and trading, graphics set to 0 -> no drawing
 
+    % if supertrend could not be calculate, e.g. because atrPeriod > available data
     if (isnan(supertrend) | isnan(trend))
         pdRatio = NaN;
         cleanPL = NaN;
+        pdMsgCode = 4;
         return;
     end
 
@@ -374,10 +373,10 @@ function [pdRatio, cleanPL, pdMsgCode] = trade_strategy(param1, param2, data)
     for kk = param1+1 : length(data) % cicle through all candles of current data
 
     % ======================
-    %     Debugging
-        if kk == 2
-            x = 0;
-        end
+%         Debugging
+%             if kk == 2
+%                 x = 0;
+%             end
     % ======================
 
         % careful not to use data which we do not know today! 
@@ -456,36 +455,40 @@ function [pdRatio, cleanPL, pdMsgCode] = trade_strategy(param1, param2, data)
 
     % Check how many datapoints available
     if length(cleanPL) == 0 % no trade was computed
+
         maxDrawdown = NaN;
         pdRatio = 0;
-        pdMsgCode = 1;
+        pdMsgCode = 1; % error code for detecting why no pd-ratio could be calculated
 
     elseif length(cleanPL) == 1 % only one trade was computed
+
         cleanEquity(2) = cleanEquity(1) + cleanPL(1);
         maxDrawdown = NaN;
         pdRatio = 0;
-        pdMsgCode = 2;
+        pdMsgCode = 2; % error code for detecting why no pd-ratio could be calculated
 
     else % more than 1 trades were computed
 
         for kk = 1:length(cleanPL)
-
-                % calculate equity curve by adding up each profit/loss to current account balance
+ 
+            % calculate equity curve by adding up each profit/loss to current account balance
                 cleanEquity(kk+1,1) = cleanEquity(kk) + cleanPL(kk); %[€]        
-
+                cleanEquity(cleanEquity <= 0) = 0.01; % if equity would go below zero, set balance to 1cent (negative balance not possible)
         end
 
-        % Calculate maximum drawdown of the equity-curve - use internal matlab function maxdrawdown(), output = % value
+        % Calculate maximum drawdown of the equity-curve - use internal matlab function maxdrawdown(), output = % value      
         maxDrawdown = maxdrawdown(cleanEquity) * 100;
         
         % Calculate ProfitDrawdownRatio
         if maxDrawdown ~= 0
 
             pdRatio = totalPL_percent / maxDrawdown;
-            pdMsgCode = 0;
+            pdMsgCode = 0; 
+            
         else
             pdRatio = 0;
-            pdMsgCode = 3;
+            pdMsgCode = 3; % error code for detecting why no pd-ratio could be calculated
+            
         end
     end     
 end
@@ -494,9 +497,9 @@ end
 
 % =========================================================================
 % myFLA(Instrument, totalWindowSize, windowLenght_iS, windowLength_ooS, graphics)
-% myFLA('EURGBP', 2000, 518, 259, 0)
+% myFLA('EURGBP', 2000, 500, 250, 0)
 
 % tic
-% myFLA('EURUSD', 2000, 1000, 259, 1)
+% myFLA('EURUSD', 2000, 500, 250, 0)
 % toc
 % =========================================================================
