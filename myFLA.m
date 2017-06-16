@@ -47,15 +47,20 @@ global investment;
 
 investment = 10000; % amount of $ to invest per trade = account size -> 100% of acc size are invested in the market all the time
 
-% Params for ATR optimization
+% Params for ATR optimization - ATR parameters must be integers -> no decimals
 lowLim_ATR = 10;
 upLim_ATR = 50;
-step_ATR = 1;
+step_ATR = 1; 
+    
+    % in case user chose decimals, delete decimals to ensure correct calulations in ATR calculatoin
+    lowLim_ATR = round(lowLim_ATR); 
+    upLim_ATR = round(upLim_ATR);
+    step_ATR = round(step_ATR);
 
-% Params for multiplier optimization
+% Params for multiplier optimization - Multiplier parameters can have decimals
 lowLim_mult = 1;
 upLim_mult = 7;
-step_mult = 0.5;
+step_mult = 1;  
 
 % =================================================================
 
@@ -221,9 +226,13 @@ iS_pdRatio = zeros(upperLimit1 / stepParam1, upperLimit2 / stepParam2);
 % cicle through all parameter combinations and create a heatmap
 for ii = (lowerLimit1 / stepParam1) : (upperLimit1 / stepParam1) % cicle through each column = ATR, divisions necc. for steps < 1
     for jj = (lowerLimit2 / stepParam2) : (upperLimit2 / stepParam2) % cicle through each row = Multiplier, divisions necc. for steps < 1
-        
+            
         currATR = ii * stepParam1; % convert back to use as input param for trading 
         currMult = jj * stepParam2; % convert back to use as input param for trading
+        
+        if (currATR == 1)
+            x=0;
+        end
         
         % trade on current data set with ii and jj as input parameter, pd_ratio is returned and saved for each walk       
         pdRatio = trade_strategy(currATR, currMult, data); 
@@ -239,6 +248,9 @@ end
 optParam1 = indexTemp(ind) * stepParam1;
 optParam2 = ind * stepParam2;
 
+if (optParam1 == 1)
+    x=0;
+end
 end
 
 
@@ -250,6 +262,11 @@ function [pdRatio, cleanPL] = runBacktest(optParam1, optParam2, data)
 
 % trade strategy with optimal parameters calculated in the iS-test
 % use current data set //  pd_ratio and equity are returned and saved for each walk
+
+if (optParam1 == 1)
+    x=0;
+end
+
 [pdRatio, cleanPL] = trade_strategy(optParam1, optParam2, data); 
 
 % figure;
@@ -355,9 +372,9 @@ for kk = param1+1 : length(data) % cicle through all candles of current data
   
 % ======================
 %     Debugging
-%     if kk == 102
-%         x = 0;
-%     end
+    if kk == 2
+        x = 0;
+    end
 % ======================
     
     % careful not to use data which we do not know today! 
