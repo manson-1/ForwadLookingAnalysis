@@ -179,7 +179,7 @@ function [] = myFLA(Instrument, totalDataSize, windowLenght_iS, windowLength_ooS
     end
 
     % Create char-array for error-code definitions, plot to console in next section
-    pdMsg = {'pd_ratio error messages';'0 = calculation ok';'1 = no trade computed';'2 = only one trade computed';'3 = no negative trades - maxdrawdown = 0';'4 = SuperTrend could not be calculated'};
+    pdMsg = {'pd_ratio error messages';'0 = calculation ok';'1 = no trade computed';'2 = only one negative trade computed';'3 = only one positive trade computed';'4 = no negative trades - maxdrawdown = 0';'5 = SuperTrend could not be calculated'};
 
     % Print to command window for controlling dates
     count_walks;
@@ -243,8 +243,7 @@ function [optParam1, optParam2] = runOptimizer_iS(lowerLimit1, upperLimit1, step
             pdRatio = trade_strategy(currATR, currMult, data); 
             iS_pdRatio(ii,jj) = pdRatio; % save result in array
 
-        end
-        
+        end       
     end
 
     % detect max value of pdRatio-array and save the position-indices of it -> optimal input parameter
@@ -272,7 +271,7 @@ function [pdRatio, cleanPL, pdMsgCode] = runBacktest(optParam1, optParam2, data)
     % Plot the graphs where pdRatio is 0 -> to be able to check 
     showSupertrends = true;
     if (showSupertrends)
-        if pdMsgCode > 0
+        if pdMsgCode == 2
             mySuperTrend(data, optParam1, optParam2, 1);
         end
     end
@@ -295,7 +294,7 @@ function [pdRatio, cleanPL, pdMsgCode] = trade_strategy(param1, param2, data)
     if (isnan(supertrend) | isnan(trend))
         pdRatio = NaN;
         cleanPL = NaN;
-        pdMsgCode = 4;
+        pdMsgCode = 5;
         return;
     end
 
@@ -467,9 +466,16 @@ function [pdRatio, cleanPL, pdMsgCode] = trade_strategy(param1, param2, data)
     elseif length(cleanPL) == 1 % only one trade was computed
 
         cleanEquity(2) = cleanEquity(1) + cleanPL(1);
-        maxDrawdown = NaN;
-        pdRatio = 0;
-        pdMsgCode = 2; % error code for detecting why no pd-ratio could be calculated
+        
+        if(cleanEquity(2) > cleanEquity(1)) % only one positive trade
+            maxDrawdown = 0.01; % set manually so calculation is possible -> value is a percentage value -> 0.01%
+            pdRatio = totalPL_percent / maxDrawdown;
+            pdMsgCode = 3;
+            
+        else % only one negative trade
+            pdRatio = 0;
+            pdMsgCode = 2; % error code for detecting why no pd-ratio could be calculated
+        end
 
     else % more than 1 trades were computed
         
@@ -494,7 +500,7 @@ function [pdRatio, cleanPL, pdMsgCode] = trade_strategy(param1, param2, data)
             
         else
             pdRatio = 0;
-            pdMsgCode = 3; % error code for detecting why no pd-ratio could be calculated
+            pdMsgCode = 4; % error code for detecting why no pd-ratio could be calculated
             
         end
     end     
