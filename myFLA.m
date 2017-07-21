@@ -75,7 +75,7 @@ function [] = myFLA(Instrument, totalDataSize, windowLenght_iS, windowLength_ooS
 
     % Assign values for the first walk
     startDateIndex = 1;
-    endDateIndex = 1+totalDataSize;
+    endDateIndex = totalDataSize;
 
     %==================== MAJOR CALCULATION ===============================
 
@@ -126,13 +126,13 @@ function [] = myFLA(Instrument, totalDataSize, windowLenght_iS, windowLength_ooS
 
         % Define the dataset for all further calculations
 
-        data_iS = data(date : date + windowLenght_iS, :); % no data check needed, already done above
+        data_iS = data(date : date + windowLenght_iS - 1, :); % no data check needed, already done above
 
-        if (date + windowLenght_iS + 1 + windowLength_ooS > length(dates)) % if endDate_ooS exceeds the array size
-            data_ooS = data(date + windowLenght_iS + 1 : length(dates)-1, :);
+        if (date + windowLenght_iS + windowLength_ooS > length(dates)) % if endDate_ooS exceeds the array size
+            data_ooS = data(date + windowLenght_iS : length(dates)-1, :);
             disp('data_ooS was trimmed to fit the array size');        
         else
-            data_ooS = data(date + windowLenght_iS + 1 : date + windowLenght_iS + 1 + windowLength_ooS, :); % endDate_ooS does not exceed the array size
+            data_ooS = data(date + windowLenght_iS : date + windowLenght_iS + windowLength_ooS - 1, :); % endDate_ooS does not exceed the array size
         end
 
 % ========================= WALK FORWARD ==============================
@@ -161,7 +161,10 @@ function [] = myFLA(Instrument, totalDataSize, windowLenght_iS, windowLength_ooS
 
     % calculate final equity curve by adding up each profit/loss to current account balance
     ooS_Equity(1) = investment; % first data point = initial account balance = investment size
+    ooS_Equity(2:length(ooS_ProfitLoss),1) = NaN; % Preallocate for speed
+    
     iS_Equity(1) = investment; % first data point = initial account balance = investment size
+    iS_Equity(2:length(iS_ProfitLoss),1) = NaN; % Preallocate for speed
 
     for kk = 2:length(ooS_ProfitLoss)
 
@@ -468,12 +471,15 @@ function [pdRatio, cleanPL, pdMsgCode] = trade_strategy(param1, param2, data)
         pdMsgCode = 2; % error code for detecting why no pd-ratio could be calculated
 
     else % more than 1 trades were computed
-
+        
+        % Preallocate cleanEquity -> speed
+        cleanEquity(2:length(cleanPL)+1,1) = NaN;
+        
         for kk = 1:length(cleanPL)
  
             % calculate equity curve by adding up each profit/loss to current account balance
-                cleanEquity(kk+1,1) = cleanEquity(kk) + cleanPL(kk); %[€]        
-                cleanEquity(cleanEquity <= 0) = 0.01; % if equity would go below zero, set balance to 1cent (negative balance not possible)
+            cleanEquity(kk+1,1) = cleanEquity(kk) + cleanPL(kk); %[€]        
+            cleanEquity(cleanEquity <= 0) = 0.01; % if equity would go below zero, set balance to 1cent (negative balance not possible)
         end
 
         % Calculate maximum drawdown of the equity-curve - use internal matlab function maxdrawdown(), output = % value      
