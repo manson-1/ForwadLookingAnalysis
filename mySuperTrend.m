@@ -175,14 +175,14 @@ for ii = periodATR+2:length(close) % Start ii from 16 -> need values from ii=15 
         % SUPER TREND
         %///////////////////////////////////////////////////////////////
         if trend(ii-1) == 1;
-            supertrend(ii-1) = supertrend_dn(ii-1);
+            supertrend(ii) = supertrend_dn(ii-1);
             
             % for 2-colour drawing
             supertrend_draw_up(ii) = supertrend_dn(ii-1);
             supertrend_draw_dn(ii) = NaN;
             
         elseif trend(ii-1) == -1;
-            supertrend(ii-1) = supertrend_up(ii-1);
+            supertrend(ii) = supertrend_up(ii-1);
             
             % for 2-colour drawing
             supertrend_draw_up(ii) = NaN;

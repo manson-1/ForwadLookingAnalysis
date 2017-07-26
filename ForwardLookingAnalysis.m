@@ -1,4 +1,8 @@
-% RUN FORWARD LOOKING ANALYSIS
+% FORWARD LOOKING ANALYSIS
+% ------------------------
 
-analysis = myFLA('EURUSD', 2000, 750, 150, 1); % initialize object with basic input informations
+% myFLA('Instrument', totalDataSize, windowLenght_iS, windowLength_ooS, graphics)
+analysis = myFLA('EURUSD', 2000, 750, 350, 1); % initialize object with basic input informations
+
+% RUN ANALYSIS
 RunFLA(analysis);

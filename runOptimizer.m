@@ -1,4 +1,4 @@
-function [optParam1, optParam2] = runOptimizer(lowerLimit1, upperLimit1, stepParam1, lowerLimit2, upperLimit2, stepParam2, data)
+function [optParam1, optParam2] = runOptimizer(lowerLimit1, upperLimit1, stepParam1, lowerLimit2, upperLimit2, stepParam2, data, obj)
     % INPUT PARAMETER
 
         % lowerLimit1, lowerLimit2 = lower limit for optimization of parameter 1 / parameter 2
@@ -9,8 +9,7 @@ function [optParam1, optParam2] = runOptimizer(lowerLimit1, upperLimit1, stepPar
         % For Supertrend Trading:
         % -- Param1 = ATR
         % -- Param2 = Multiplier
-
-        
+      
     % Preallocate array with dimensions according to input limits
     iS_pdRatio = NaN((upperLimit1 - lowerLimit1)/ stepParam1 + 1, (upperLimit2 - lowerLimit2) / stepParam2 + 1);
 
@@ -22,7 +21,7 @@ function [optParam1, optParam2] = runOptimizer(lowerLimit1, upperLimit1, stepPar
             currMult = lowerLimit2 + (jj * stepParam2) - stepParam2; % convert back to use as input param for trading
 
             % trade on current data set with ii and jj as input parameter, pd_ratio is returned and saved for each walk
-            pdRatio = myFLA.trade_strategy(currATR, currMult, data); 
+            pdRatio = tradeStrategy(currATR, currMult, data, obj); 
             iS_pdRatio(ii,jj) = pdRatio; % save result in array
 
         end       
