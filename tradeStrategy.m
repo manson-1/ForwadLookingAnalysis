@@ -1,10 +1,8 @@
 function [pdRatio, cleanPL, pdMsgCode] = tradeStrategy(param1, param2, data, obj)
     % INPUT PARAMETER
-
-        % For SuperTrend-Trading:
-        % param1 = period ATR
-        % param2 = multiplier
-        % data = dataset to trade the strategy
+    % For SuperTrend-Trading:
+    % param1 = period ATR
+    % param2 = multiplier
 
     % CALCULATE SUPERTREND
     % receive array with supertrend data and trend-direction (not necessary) of data
@@ -14,7 +12,6 @@ function [pdRatio, cleanPL, pdMsgCode] = tradeStrategy(param1, param2, data, obj
     
     % Trim the arrays so the first datapoints are not used for trading -> they are only for ST calculation (see lines ~130-160)
     % Starting only from the second walk, as the first walk has no added datapoints at the beginning
-    
     
     if (obj.count_walks > 1)
         supertrend = supertrend(obj.windowLength_ooS +1 : end);
@@ -46,7 +43,6 @@ function [pdRatio, cleanPL, pdMsgCode] = tradeStrategy(param1, param2, data, obj
     end
 
     % INITIALIZE 
-
     profitLoss = 0;
     runningTrade(1:param1, :) = 0; % set first values of the array to 0 -> no running trade at the beginning
 
@@ -65,50 +61,39 @@ function [pdRatio, cleanPL, pdMsgCode] = tradeStrategy(param1, param2, data, obj
     % DECLARE TRADING FUNCTIONS
 
     function [] = enterShort(now)
-
+        
                 runningTrade(now) = -1;
                 entryTimeShort = (now); % save time index of entry signal
                 entryPriceShort = open(now); % save entry price
                 tradeCounterShort = tradeCounterShort + 1; % count how many short trades      
-
     end
 
-
     function [] = enterLong(now)
-
+        
                 runningTrade(now) = 1;
                 entryTimeLong = now; % save time index of entry signal
                 entryPriceLong = open(now); % save entry price
                 tradeCounterLong = tradeCounterLong + 1; % count how many short trades   
-
     end
 
-
     function [] = exitShort(now)
-
+        
         if  (runningTrade(now-1) == -1) % make sure there is a running short trade        
-
             runningTrade(now) = 0;
             tradeDurationShort(now) = (now) - (entryTimeShort - 1); % calculate number of bars of trade duration (for further statistics)
             profitLoss(now,:) = (entryPriceShort - open(now,:)) * obj.investment; % calculate P/L in USD
             exitCounterShort = exitCounterShort + 1; % count how many short trades are stopped out
-
         end
-
     end
-
 
     function [] = exitLong(now)
 
-        if  (runningTrade(now-1) == 1) % make sure there is a running short trade        
-
+        if  (runningTrade(now-1) == 1) % make sure there is a running short trade       
             runningTrade(now) = 0;
             tradeDurationLong(now) = (now) - (entryTimeLong - 1); % calculate number of bars of trade duration (for further statistics)
             profitLoss(now,:) = (open(now,:) - entryPriceLong) * obj.investment; % calculate P/L in USD
             exitCounterLong = exitCounterLong + 1; % count how many short trades are stopped out
-
         end
-
     end
 
 
@@ -173,7 +158,7 @@ function [pdRatio, cleanPL, pdMsgCode] = tradeStrategy(param1, param2, data, obj
         end   
 
         % if last datapoint reached -> close all running trades    
-        if kk == length(data)
+        if kk == length(close)
 
             if runningTrade(kk-1) == -1
                 exitShort(kk);
@@ -246,7 +231,7 @@ function [pdRatio, cleanPL, pdMsgCode] = tradeStrategy(param1, param2, data, obj
         end
     end 
     
-    % Plot supertrends where messageCode > 0
+    % Plot supertrends where no trade was computed or supertrend could not be computed
     if (obj.count_walks > 1 && obj.graphics == 1 && (pdMsgCode == 1 || pdMsgCode == 5))
         plotSuperTrend(open, high, low, close, supertrend)
     end

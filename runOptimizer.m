@@ -1,14 +1,14 @@
 function [optParam1, optParam2] = runOptimizer(lowerLimit1, upperLimit1, stepParam1, lowerLimit2, upperLimit2, stepParam2, data, obj)
+    
     % INPUT PARAMETER
+    % lowerLimit1, lowerLimit2 = lower limit for optimization of parameter 1 / parameter 2
+    % upperLimit1, upperLimit2 = upper limit for optimization of parameter 1 / parameter 2
+    % stepParam1, setpParam2   = step forward interval for optimizing parameter 1 / parameter 2
+    % param1, param2           = input parameter 1 / parameter 2 for the trading strategy
 
-        % lowerLimit1, lowerLimit2 = lower limit for optimization of parameter 1 / parameter 2
-        % upperLimit1, upperLimit2 = upper limit for optimization of parameter 1 / parameter 2
-        % stepParam1, setpParam2   = step forward interval for optimizing parameter 1 / parameter 2
-        % param1, param2           = input parameter 1 / parameter 2 for the trading strategy
-
-        % For Supertrend Trading:
-        % -- Param1 = ATR
-        % -- Param2 = Multiplier
+    % For Supertrend Trading:
+    % -- Param1 = ATR
+    % -- Param2 = Multiplier
       
     % Preallocate array with dimensions according to input limits
     iS_pdRatio = NaN((upperLimit1 - lowerLimit1)/ stepParam1 + 1, (upperLimit2 - lowerLimit2) / stepParam2 + 1);
