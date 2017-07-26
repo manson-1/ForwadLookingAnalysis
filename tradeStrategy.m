@@ -22,7 +22,7 @@ function [pdRatio, cleanPL, pdMsgCode] = tradeStrategy(param1, param2, data, obj
     if (or(isnan(supertrend), isnan(trend)))
         pdRatio = NaN;
         cleanPL = NaN;
-        pdMsgCode = 5;
+        pdMsgCode = 4;
         return;
     end
 
@@ -225,14 +225,15 @@ function [pdRatio, cleanPL, pdMsgCode] = tradeStrategy(param1, param2, data, obj
             pdMsgCode = 0; 
             
         else
-            pdRatio = 0;
-            pdMsgCode = 4; % error code for detecting why no pd-ratio could be calculated
+            maxDrawdown = 0.01; % set manually so calculation is possible -> value is a percentage value -> 0.01%
+            pdRatio = totalPL_percent / maxDrawdown;
+            pdMsgCode = 3; % error code for detecting why no pd-ratio could be calculated
             
         end
     end 
     
     % Plot supertrends where no trade was computed or supertrend could not be computed
-    if (obj.count_walks > 1 && obj.graphics == 1 && (pdMsgCode == 1 || pdMsgCode == 5))
-        plotSuperTrend(open, high, low, close, supertrend)
-    end
+%     if (obj.count_walks > 1 && obj.graphics == 1 && (pdMsgCode == 1 || pdMsgCode == 5))
+%         plotSuperTrend(open, high, low, close, supertrend)
+%     end
 end

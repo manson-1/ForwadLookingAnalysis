@@ -49,7 +49,7 @@ classdef myFLA
 
             % ======================= USER INPUT ==============================
             
-            % Params for ATR optimization - ATR parameters must be integers -> no decimals
+            % Params for ATR optimization - ATR parameters must be integers -> USE NO DECIMALS -> DECIMALS WILL BE ROUNDED TO INTEGER
             lowLim_ATR = 10;
             upLim_ATR = 50;
             step_ATR = 1; 
@@ -58,10 +58,11 @@ classdef myFLA
             upLim_mult = 7;
             step_mult = 0.5; 
             
-            % in case user chose decimals, delete decimals to ensure correct calulations in ATR calculation
-            lowLim_ATR = round(lowLim_ATR); 
-            upLim_ATR = round(upLim_ATR);
-            step_ATR = round(step_ATR);
+            % in case user chooses decimals, delete decimals to ensure correct calulations in ATR calculation
+            % using ceil() to avoid rounding down to zero in case user chooses a decimal < 1
+            lowLim_ATR = ceil(lowLim_ATR); 
+            upLim_ATR = ceil(upLim_ATR);
+            step_ATR = ceil(step_ATR);
 
             % =================================================================
 
@@ -199,7 +200,13 @@ classdef myFLA
             end
 
             % Create char-array for error-code definitions, plot to console in next section
-            pdMsg = {'pd_ratio error messages';'0 = calculation ok';'1 = no trade computed';'2 = only one negative trade computed';'3 = only one positive trade computed';'4 = no negative trades - maxdrawdown = 0';'5 = SuperTrend could not be calculated'};
+            pdMsg = {
+                'pd_ratio error messages';
+                '0 = calculation ok';
+                '1 = no trade computed';
+                '2 = only one negative trade computed';
+                '3 = only positive trades computed, maxdrawdown set to 0.1%';
+                '4 = SuperTrend could not be calculated'};
 
             % Print to command window for controlling dates
             obj.count_walks;
@@ -228,7 +235,7 @@ classdef myFLA
                     % OUT OF SAMPLE PLOTTING
                     s2 = subplot(1,2,2); 
                         hold on                
-                            plot(ooS_Equity, 'r'); % ooS_Equity = each ooS_equity combined
+                            plot(ooS_Equity, 'b'); % ooS_Equity = each ooS_equity combined
                             title(s2, 'OUT OF SAMPLE');
                             ylabel(s2, 'Account Balance [€]');
                             xlabel(s2, '# of Trades');
