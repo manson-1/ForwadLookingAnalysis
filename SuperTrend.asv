@@ -1,1 +1,0 @@
-function [supertrend] = mySuperTrend(periodATR, period_signal, histogram, graphics)
