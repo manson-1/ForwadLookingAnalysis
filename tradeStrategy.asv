@@ -17,8 +17,8 @@ function [pdRatio, cleanPL, pdMsgCode] = tradeStrategy(param1, param2, data, obj
     
     
     if (obj.count_walks > 1)
-        supertrend = supertrend(obj.windowLength_ooS +1 : end);
-        trend = trend(obj.windowLength_ooS +1: end);
+        supertrend = supertrend(obj.windowLength_ooS : end);
+        trend = trend(obj.windowLength_ooS : end - 1);
     end
     
     % if supertrend could not be calculate, e.g. because atrPeriod > available data
@@ -38,11 +38,11 @@ function [pdRatio, cleanPL, pdMsgCode] = tradeStrategy(param1, param2, data, obj
         close = data(:,4);
         
     elseif (obj.count_walks > 1)
-        open = data(obj.windowLength_ooS +1: end ,1);
-        high = data(obj.windowLength_ooS +1: end ,2);
-        low = data(obj.windowLength_ooS +1: end ,3);
-        close = data(obj.windowLength_ooS +1: end ,4);
-        %plotSuperTrend(open, high, low, close, supertrend) % for debugging
+        open = data(obj.windowLength_ooS -1 : end ,1);
+        high = data(obj.windowLength_ooS : end-1 ,2);
+        low = data(obj.windowLength_ooS : end-1 ,3);
+        close = data(obj.windowLength_ooS : end-1 ,4);
+        plotSuperTrend(open, high, low, close, supertrend)
     end
 
     % INITIALIZE 
@@ -247,7 +247,7 @@ function [pdRatio, cleanPL, pdMsgCode] = tradeStrategy(param1, param2, data, obj
     end 
     
     % Plot supertrends where messageCode > 0
-    if (obj.count_walks > 1 && obj.graphics == 1 && (pdMsgCode == 1 || pdMsgCode == 5))
+    if (obj.count_walks > 1 && pdMsgCode > 0 && obj.graphics == 1)
         plotSuperTrend(open, high, low, close, supertrend)
     end
 end
