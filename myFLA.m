@@ -64,6 +64,9 @@ classdef myFLA
             lowLim_ATR = ceil(lowLim_ATR); 
             upLim_ATR = ceil(upLim_ATR);
             step_ATR = ceil(step_ATR);
+            
+            % for static analysis receiving tons of messages is not useful - here you can disable the message boxes
+            showMessages = false;
 
             % =================================================================
 
@@ -96,7 +99,9 @@ classdef myFLA
                 % ONLY FOR PRINTING TO THE COMMAND WINDOW
 
                 if (date > length(dates)) % if startDate_iS exceeds the array size
-                    msgbox('ATTENTION! data_iS exceeds the size of the dataseries, no data for walk forward left -> end');
+                    if (showMessages == true)
+                        msgbox('ATTENTION! data_iS exceeds the size of the dataseries, no data for walk forward left -> end');
+                    end
                     obj.count_walks = obj.count_walks - 1; % Walk is not completely done
                     break; % exit the loop
                 else
@@ -104,7 +109,9 @@ classdef myFLA
                 end
 
                 if (date + obj.windowLenght_iS > length(dates)) % if endDate_iS exceeds the array size
-                    msgbox('ATTENTION! data_iS exceeds the size of the dataseries, no data for walk forward left -> end');
+                    if (showMessages == true)
+                        msgbox('ATTENTION! data_iS exceeds the size of the dataseries, no data for walk forward left -> end');
+                    end
                     obj.count_walks = obj.count_walks - 1; % Walk is not completely done
                     break; % exit the loop
                 else
@@ -112,7 +119,9 @@ classdef myFLA
                 end
 
                 if (date + obj.windowLenght_iS + 1 > length(dates)) % if startDate_ooS exceeds the array size
-                    msgbox('ATTENTION! data_iS exceeds the size of the dataseries, no data for walk forward left -> end');  
+                    if (showMessages == true)
+                        msgbox('ATTENTION! data_iS exceeds the size of the dataseries, no data for walk forward left -> end');  
+                    end
                     obj.count_walks = obj.count_walks -1;
                     break; % exit the loop
                 else
@@ -121,7 +130,9 @@ classdef myFLA
 
                 if (date + obj.windowLenght_iS + 1 + obj.windowLength_ooS > length(dates)) % if endDate_ooS exceeds the array size
                     endDate_ooS(obj.count_walks,:) = dates(length(dates));
-                    msgbox('ATTENTION! endDate_ooS exceeds the dimension of the dataseries and was trimmed to fit to the array-size');        
+                    if (showMessages == true)
+                        msgbox('ATTENTION! endDate_ooS exceeds the dimension of the dataseries and was trimmed to fit to the array-size'); 
+                    end
                 else
                     endDate_ooS(obj.count_walks,:) = dates(date + obj.windowLenght_iS + 1 + obj.windowLength_ooS); % endDate_ooS does not exceed the array size
                 end
@@ -133,7 +144,9 @@ classdef myFLA
 
                     if (date + obj.windowLenght_iS + obj.windowLength_ooS > length(dates)) % if endDate_ooS exceeds the array size
                         data_ooS = data(date + obj.windowLenght_iS : length(dates)-1, :);
-                        disp('data_ooS was trimmed to fit the array size');        
+                        if (showMessages == true)
+                            msgbox('data_ooS was trimmed to fit the array size');      
+                        end
                     else
                         data_ooS = data(date + obj.windowLenght_iS : date + obj.windowLenght_iS + obj.windowLength_ooS - 1, :); % endDate_ooS does not exceed the array size
                     end
@@ -154,7 +167,9 @@ classdef myFLA
                     % add windowLenth_ooS size to the beginning of the data
                     if (date + obj.windowLenght_iS + obj.windowLength_ooS > length(dates)) % if endDate_ooS exceeds the array size
                         data_ooS = data(date - obj.windowLength_ooS + obj.windowLenght_iS : length(dates)-1, :);
-                        disp('data_ooS was trimmed to fit the array size');        
+                        if (showMessages == true)
+                            msgbox('data_ooS was trimmed to fit the array size');   
+                        end
                     else
                         data_ooS = data(date - obj.windowLength_ooS + obj.windowLenght_iS : date + obj.windowLenght_iS + obj.windowLength_ooS - 1, :); % endDate_ooS does not exceed the array size
                     end

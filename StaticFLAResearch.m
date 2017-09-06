@@ -1,5 +1,5 @@
 % INPUT
-Instrument = 'EURUSD';
+Instrument = 'NZDUSD';
 
 % SETUP LOG FILE
 filePath = horzcat(Instrument, '.txt');
@@ -14,8 +14,8 @@ formatSpec = '\t%2d\t\t %2d\t\t %.4g\n'; % predefine the format of the printed v
 % =========================================================================================
 
 tic
-for i = 200 : 100 : 200 % in sample length
-    for j = 100 : 50 : 200 % out of sample length
+for i = 200 : 100 : 1000 % in sample length
+    for j = 100 : 50 : 500 % out of sample length
     
     % myFLA('Instrument', totalDataSize, windowLenght_iS, windowLength_ooS, graphics)
     analysis = myFLA(Instrument, 2500, i, j, 0); 
