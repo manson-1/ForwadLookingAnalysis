@@ -6,7 +6,7 @@ filePath = horzcat(Instrument, '.txt');
 columnNames = 'windowLength_iS / windowLength_ooS / ForwardEfficiency';
 
 fileID = fopen(filePath, 'wt'); % open log file for writing
-fprintf(fileID, '\t\t\t%s\n\n', Instrument); % write Instrument name to the log file
+fprintf(fileID, '\t\t\t%s\n \t(daily candles, ~11 years history)\n\n', Instrument); % write Instrument name to the log file
 fprintf(fileID, '%s\n\n', columnNames); % write column headers to the log file
 formatSpec = '\t%2d\t\t %2d\t\t %.4g\n'; % predefine the format of the printed variables
 
@@ -18,7 +18,7 @@ for i = 200 : 100 : 200 % in sample length
     for j = 100 : 50 : 200 % out of sample length
     
     % myFLA('Instrument', totalDataSize, windowLenght_iS, windowLength_ooS, graphics)
-    analysis = myFLA(Instrument, 2000, i, j, 0); 
+    analysis = myFLA(Instrument, 2500, i, j, 0); 
 
     % RUN ANALYSIS
     % ForwardEfficiency is returned by RunFLA() and assigned to the analysis object.
