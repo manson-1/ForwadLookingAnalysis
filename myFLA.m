@@ -7,6 +7,7 @@ classdef myFLA
         totalDataSize;          % measured from the first data point, how much data should be taken into calculation for the consecutive walks. FLA stops when end of totalWindowSize is reached
         windowLenght_iS;        % window length of data for in-sample optimization, measured in trading days, default = 500
         windowLength_ooS;       % window length of data for out-of-sample backtest measured in trading days, default = 250 
+        ForwardEfficiency;      % for static/dynamic optimization = pd_oosRatios / pd_isRatios
         graphics;               % if graphics == 1 plotting is activated
     end
     
@@ -19,7 +20,7 @@ classdef myFLA
             obj.graphics = graphics;
         end 
         
-        function [] = RunFLA(obj) % Major function to perform the forward looking analysis
+        function [ForwardEfficiency] = RunFLA(obj) % Major function to perform the forward looking analysis
 
             % DATA PREPARATION
             % read price data and dates
@@ -198,6 +199,9 @@ classdef myFLA
             for kk = 2:length(iS_ProfitLoss)
                 iS_Equity(kk,1) = iS_Equity(kk-1) + iS_ProfitLoss(kk); %[€]
             end
+            
+            %  FORWARD EFFICIENCY (see Robert Pardo p. x)
+            ForwardEfficiency = sum(ooS_pdRatios) / sum(iS_pdRatios);
 
             % Create char-array for error-code definitions, plot to console in next section
             pdMsg = {
