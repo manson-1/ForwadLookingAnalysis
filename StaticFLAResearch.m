@@ -1,5 +1,5 @@
 % INPUT
-Instrument = 'NZDUSD';
+Instrument = 'EURJPY';
 
 % SETUP LOG FILE
 filePath = horzcat(Instrument, '.txt');
@@ -25,9 +25,9 @@ for i = 200 : 100 : 1000 % in sample length
     analysis.ForwardEfficiency = RunFLA(analysis);
     
     % WRITE TABLE
-     T = [analysis.windowLenght_iS, analysis.windowLength_ooS, analysis.ForwardEfficiency];
+     resultTable = [analysis.windowLenght_iS, analysis.windowLength_ooS, analysis.ForwardEfficiency];
 
-    fprintf(fileID, formatSpec, T);
+    fprintf(fileID, formatSpec, resultTable);
     
     end
 end
