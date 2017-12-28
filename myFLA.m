@@ -195,7 +195,7 @@ classdef myFLA
                 iS_pdRatios(obj.count_walks,1) = iS_pdRatio;
                 iS_pdRatios(obj.count_walks,2) = iS_pdMsgCode; % info about pd-ratio calculation
 
-                % Calculate the combined forwardLooking-P&L by combining each out-of-sample P&L vector   
+                % Calculate the combined forwardLooking-P&L by combining each ooS/iS P&L vector   
                 ooS_ProfitLoss = vertcat(ooS_ProfitLoss, ooS_cleanPL);
                 iS_ProfitLoss = vertcat(iS_ProfitLoss, iS_cleanPL);
             end
@@ -214,7 +214,7 @@ classdef myFLA
             for kk = 2:length(iS_ProfitLoss)
                 iS_Equity(kk,1) = iS_Equity(kk-1) + iS_ProfitLoss(kk); %[€]
             end
-            
+%%% ! %%%       
             %  FORWARD EFFICIENCY (see Robert Pardo p. x)
             ForwardEfficiency = sum(ooS_pdRatios) / sum(iS_pdRatios);
 
