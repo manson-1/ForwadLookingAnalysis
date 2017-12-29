@@ -221,9 +221,10 @@ classdef myFLA
 %%% ! %%%       
             %  FORWARD EFFICIENCY (see Robert Pardo p. x)
             % ForwardEfficiency = sum(ooS_pdRatios) / sum(iS_pdRatios);
-            ForwardEfficiency = sum(ooS_ProfitLoss)/length(ooS_ProfitLoss) / sum(iS_ProfitLoss)/length(iS_ProfitLoss);
+            ForwardRatio = (sum(ooS_ProfitLoss)/length(ooS_ProfitLoss)) / (sum(iS_ProfitLoss)/length(iS_ProfitLoss));
 
             % Create char-array for error-code definitions, plot to console in next section
+            %{
             pdMsg = {
                 'pd_ratio error messages';
                 '0 = calculation ok';
@@ -231,6 +232,7 @@ classdef myFLA
                 '2 = only one negative trade computed';
                 '3 = only positive trades computed, maxdrawdown set to 0.1%';
                 '4 = SuperTrend could not be calculated'};
+            %}
 
             % Print to command window for controlling dates
             obj.count_walks;
@@ -239,8 +241,8 @@ classdef myFLA
             startDate_ooS;
             endDate_ooS;
             optParams   
-            iS_pdRatios
-            ooS_pdRatios
+            %iS_pdRatios
+            %ooS_pdRatios
             disp(pdMsg)
 
             % Plot the combined FLA-Equity curve
