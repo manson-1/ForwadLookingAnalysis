@@ -1,4 +1,5 @@
-function [pdRatio, cleanPL, pdMsgCode] = tradeStrategy(param1, param2, data, obj)
+% function [pdRatio, cleanPL, pdMsgCode] = tradeStrategy(param1, param2, data, obj)
+function [cleanPL] = tradeStrategy(param1, param2, data, obj)
     % INPUT PARAMETER
     % For SuperTrend-Trading:
     % param1 = period ATR

@@ -180,21 +180,25 @@ classdef myFLA
 
                 % run in-sample optimization
                 [optParam1, optParam2] = runOptimizer(lowLim_ATR, upLim_ATR, step_ATR, lowLim_mult, upLim_mult, step_mult, data_iS, obj);
-                [iS_pdRatio, iS_cleanPL, iS_pdMsgCode] = runBacktest(optParam1, optParam2, data_iS, obj); % for later comparison to ooS-pdRatio
+                %[iS_pdRatio, iS_cleanPL, iS_pdMsgCode] = runBacktest(optParam1, optParam2, data_iS, obj); % for later comparison to ooS-pdRatio
+                [iS_cleanPL] = runBacktest(optParam1, optParam2, data_iS, obj); % for later comparison to ooS-pdRatio
 
                 % run out-of-sample backtest        
-                [ooS_pdRatio, ooS_cleanPL, ooS_pdMsgCode] = runBacktest(optParam1, optParam2, data_ooS, obj);    
+                % [ooS_pdRatio, ooS_cleanPL, ooS_pdMsgCode] = runBacktest(optParam1, optParam2, data_ooS, obj);    
+                [ooS_cleanPL] = runBacktest(optParam1, optParam2, data_ooS, obj); 
                 % mySuperTrend(data_ooS, optParam1, optParam2, 1); % for testing purpose - to see on which chart is traded
 
                 % =====================================================================
-
-                % Save the results in vectors for later display in command window                     
+                    
+                %{
+                % Save the results in vectors for later display in command window
                 optParams(obj.count_walks,:) = [optParam1, optParam2];
                 ooS_pdRatios(obj.count_walks,1) = ooS_pdRatio;  
                 ooS_pdRatios(obj.count_walks,2) = ooS_pdMsgCode; % info about pd-ratio calculation
                 iS_pdRatios(obj.count_walks,1) = iS_pdRatio;
                 iS_pdRatios(obj.count_walks,2) = iS_pdMsgCode; % info about pd-ratio calculation
-
+                %}
+                
                 % Calculate the combined forwardLooking-P&L by combining each ooS/iS P&L vector   
                 ooS_ProfitLoss = vertcat(ooS_ProfitLoss, ooS_cleanPL);
                 iS_ProfitLoss = vertcat(iS_ProfitLoss, iS_cleanPL);
@@ -216,7 +220,8 @@ classdef myFLA
             end
 %%% ! %%%       
             %  FORWARD EFFICIENCY (see Robert Pardo p. x)
-            ForwardEfficiency = sum(ooS_pdRatios) / sum(iS_pdRatios);
+            % ForwardEfficiency = sum(ooS_pdRatios) / sum(iS_pdRatios);
+            ForwardEfficiency = sum(ooS_ProfitLoss)/length(ooS_ProfitLoss) / sum(iS_ProfitLoss)/length(iS_ProfitLoss);
 
             % Create char-array for error-code definitions, plot to console in next section
             pdMsg = {
