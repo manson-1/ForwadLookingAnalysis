@@ -9,7 +9,7 @@ Department of Information Systems and Operations
 # Subject Area
 Algorithmic Trading
 
-# Supervisor
+# Supervisors
 Dipl.-Ing.Mag.rer.soc.oec. Riccardo Gismondi
 
 em.o.Univ.Prof. Dkfm.Dr.rer.comm. Wolfgang Janko              
