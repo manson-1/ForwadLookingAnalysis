@@ -1,4 +1,6 @@
-			EURUSD
+	    --- SAMPLE OUTPUT FILE ---
+
+		     EURUSD
  		(daily candles)
 
 windowLength_iS / windowLength_ooS / ForwardEfficiency
